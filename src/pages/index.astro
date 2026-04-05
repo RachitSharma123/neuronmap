@@ -1,0 +1,36 @@
+---
+import { getSupabaseAdmin } from "../lib/supabase";
+import MindMap from "../components/MindMap";
+
+const supabase = getSupabaseAdmin();
+
+const [{ data: terms }, { data: connections }] = await Promise.all([
+  supabase.from("terms").select("id, name, full_name, category, definition, created_at").order("created_at"),
+  supabase.from("connections").select("from_id, to_id, weight"),
+]);
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NeuronMap — AI Knowledge Graph</title>
+    <meta name="description" content="The only AI glossary that teaches you connections, not just definitions. A living, self-evolving knowledge graph that grows every hour." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a0f; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+      #root { width: 100vw; height: 100vh; }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <MindMap
+        client:load
+        initialTerms={terms ?? []}
+        initialConnections={connections ?? []}
+      />
+    </div>
+  </body>
+</html>
