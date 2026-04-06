@@ -1,6 +1,6 @@
 ---
-const SUPA_URL = import.meta.env.PUBLIC_SUPABASE_URL ?? "";
-const SUPA_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? "";
+const SUPA_URL = (import.meta.env.PUBLIC_SUPABASE_URL ?? "").trim();
+const SUPA_KEY = (import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? "").trim();
 
 // Injected as raw HTML — Astro will NOT process/bundle these script tags
 const rawScripts = `
