@@ -30,13 +30,14 @@ let rotAngle = 0;
 // ── DOM setup ─────────────────────────────────────────────────────────────────
 const app = document.getElementById("app");
 app.innerHTML = `
-  <div id="loader" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0a0a0f;z-index:999">
+  <div id="bg"></div>
+  <div id="loader" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#04040e;z-index:999">
     <div id="spinner" style="font-size:32px;animation:spin 2s linear infinite">⬡</div>
     <div style="color:#a78bfa;font-size:16px;font-weight:600;margin-top:12px">NeuronMap</div>
     <div style="color:#475569;font-size:12px;margin-top:6px">Loading knowledge graph...</div>
   </div>
-  <svg id="graph" style="width:100vw;height:100vh;display:block"></svg>
-  <div id="topbar" style="position:fixed;top:16px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:12px;background:rgba(10,10,20,0.9);backdrop-filter:blur(12px);border:1px solid #1e2030;border-radius:12px;padding:8px 16px;z-index:10;box-shadow:0 4px 32px rgba(0,0,0,.5)">
+  <svg id="graph" style="width:100vw;height:100vh;display:block;position:relative;z-index:1"></svg>
+  <div id="topbar" style="position:fixed;top:16px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:12px;background:rgba(4,4,20,0.85);backdrop-filter:blur(16px);border:1px solid rgba(167,139,250,0.15);border-radius:12px;padding:8px 16px;z-index:10;box-shadow:0 4px 32px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,0.03)">
     <span style="font-size:15px;font-weight:700;color:#e2e8f0;letter-spacing:-.3px">⬡ NeuronMap</span>
     <div style="width:1px;height:18px;background:#1e2030"></div>
     <input id="search" placeholder="Search terms..." style="background:transparent;border:none;outline:none;color:#c8ccd4;font-size:13px;width:180px;caret-color:#a78bfa" />
@@ -46,16 +47,101 @@ app.innerHTML = `
     <button id="zoom-out" title="Zoom out" style="background:none;border:1px solid #1e2030;border-radius:6px;color:#94a3b8;font-size:16px;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;transition:all .15s">−</button>
     <button id="zoom-in"  title="Zoom in"  style="background:none;border:1px solid #1e2030;border-radius:6px;color:#94a3b8;font-size:16px;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;transition:all .15s">+</button>
     <button id="rotate-toggle" title="Toggle rotation" style="background:none;border:1px solid #a78bfa44;border-radius:6px;color:#a78bfa;font-size:13px;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;transition:all .15s">⟳</button>
+    <button id="help-btn" title="How to use" style="background:none;border:1px solid #1e2030;border-radius:6px;color:#64748b;font-size:12px;font-weight:700;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;transition:all .15s">?</button>
   </div>
   <div id="legend" style="position:fixed;bottom:24px;left:24px;display:flex;flex-direction:column;gap:4px;z-index:10"></div>
-  <div id="tooltip" style="display:none;position:fixed;pointer-events:none;z-index:100;max-width:260px;border-radius:8px;padding:10px 14px;background:rgba(13,14,25,.97);box-shadow:0 8px 32px rgba(0,0,0,.6)"></div>
-  <div id="panel" style="display:none;position:fixed;right:0;top:0;bottom:0;width:360px;background:rgba(10,10,18,.97);border-left:1px solid #1e2030;flex-direction:column;z-index:50;backdrop-filter:blur(20px);box-shadow:-8px 0 48px rgba(0,0,0,.6)"></div>
+  <div id="tooltip" style="display:none;position:fixed;pointer-events:none;z-index:100;max-width:260px;border-radius:8px;padding:10px 14px;background:rgba(4,4,20,.97);box-shadow:0 8px 32px rgba(0,0,0,.6)"></div>
+  <div id="panel" style="display:none;position:fixed;right:0;top:0;bottom:0;width:360px;background:rgba(4,4,18,.97);border-left:1px solid #1e2030;flex-direction:column;z-index:50;backdrop-filter:blur(20px);box-shadow:-8px 0 48px rgba(0,0,0,.6)"></div>
   <div id="flash" style="display:none;position:fixed;top:70px;left:50%;transform:translateX(-50%);background:rgba(167,139,250,.12);border:1px solid #a78bfa44;border-radius:8px;padding:8px 16px;z-index:20;color:#a78bfa;font-size:12px;font-weight:500"></div>
+  <div id="help-modal" style="display:none;position:fixed;inset:0;z-index:200;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px)">
+    <div style="background:linear-gradient(135deg,rgba(10,8,28,0.98),rgba(4,4,18,0.98));border:1px solid rgba(167,139,250,0.25);border-radius:16px;padding:28px 32px;max-width:480px;width:90%;box-shadow:0 24px 80px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,0.03),inset 0 1px 0 rgba(255,255,255,0.06)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <div>
+          <h2 style="font-size:18px;font-weight:800;color:#f0f2f8">How to use NeuronMap</h2>
+          <p style="font-size:12px;color:#475569;margin-top:2px">The AI knowledge graph that teaches you connections</p>
+        </div>
+        <button id="help-close" style="background:none;border:none;cursor:pointer;color:#475569;font-size:20px;padding:4px;line-height:1">✕</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;gap:14px;align-items:flex-start">
+          <span style="font-size:20px;flex-shrink:0">🖱️</span>
+          <div><div style="font-size:13px;font-weight:600;color:#d4d8e8">Navigate the graph</div><div style="font-size:12px;color:#64748b;margin-top:2px">Click + drag on empty space to pan · Scroll wheel or +/− buttons to zoom</div></div>
+        </div>
+        <div style="display:flex;gap:14px;align-items:flex-start">
+          <span style="font-size:20px;flex-shrink:0">✨</span>
+          <div><div style="font-size:13px;font-weight:600;color:#d4d8e8">Explore a concept</div><div style="font-size:12px;color:#64748b;margin-top:2px">Click any node to open its panel — read the Definition, get an ELI5 from Claude, or browse Related terms</div></div>
+        </div>
+        <div style="display:flex;gap:14px;align-items:flex-start">
+          <span style="font-size:20px;flex-shrink:0">🔗</span>
+          <div><div style="font-size:13px;font-weight:600;color:#d4d8e8">See connections</div><div style="font-size:12px;color:#64748b;margin-top:2px">Hover over any node to highlight its direct connections and dim everything else</div></div>
+        </div>
+        <div style="display:flex;gap:14px;align-items:flex-start">
+          <span style="font-size:20px;flex-shrink:0">🔍</span>
+          <div><div style="font-size:13px;font-weight:600;color:#d4d8e8">Search & filter</div><div style="font-size:12px;color:#64748b;margin-top:2px">Type in the search bar to find terms · Click a category in the legend (bottom-left) to isolate it</div></div>
+        </div>
+        <div style="display:flex;gap:14px;align-items:flex-start">
+          <span style="font-size:20px;flex-shrink:0">⟳</span>
+          <div><div style="font-size:13px;font-weight:600;color:#d4d8e8">Rotation</div><div style="font-size:12px;color:#64748b;margin-top:2px">The graph slowly rotates like Earth. Click ⟳ to pause/resume. Dragging a node pauses it temporarily.</div></div>
+        </div>
+        <div style="display:flex;gap:14px;align-items:flex-start">
+          <span style="font-size:20px;flex-shrink:0">🤖</span>
+          <div><div style="font-size:13px;font-weight:600;color:#d4d8e8">Self-evolving</div><div style="font-size:12px;color:#64748b;margin-top:2px">Claude adds a new AI term to the graph every hour automatically — watch for the flash notification</div></div>
+        </div>
+      </div>
+      <button id="help-got-it" style="margin-top:24px;width:100%;background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;padding:10px;cursor:pointer;letter-spacing:.3px">Got it — let me explore ✦</button>
+    </div>
+  </div>
 `;
 
 const style = document.createElement("style");
-style.textContent = `@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}} svg{cursor:grab} svg:active{cursor:grabbing} input::placeholder{color:#475569} #zoom-in:hover,#zoom-out:hover{border-color:#a78bfa88;color:#e2e8f0} #rotate-toggle:hover{border-color:#a78bfa;background:#a78bfa18}`;
+style.textContent = `
+  @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+  @keyframes nebula1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(3%,5%) scale(1.08)}}
+  @keyframes nebula2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-4%,-3%) scale(1.12)}}
+  @keyframes nebula3{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(5%,-4%) scale(1.05)}}
+  @keyframes stardrift{from{transform:translateY(0)}to{transform:translateY(-4px)}}
+  html,body{background:#04040e}
+  #bg{
+    position:fixed;inset:0;z-index:0;overflow:hidden;
+    background:#04040e;
+  }
+  #bg::before{
+    content:'';position:absolute;inset:-20%;
+    background:
+      radial-gradient(ellipse 80% 60% at 15% 45%, rgba(88,28,235,0.18) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 70% at 85% 20%, rgba(20,80,220,0.14) 0%, transparent 55%),
+      radial-gradient(ellipse 70% 50% at 50% 90%, rgba(180,20,100,0.10) 0%, transparent 50%),
+      radial-gradient(ellipse 50% 60% at 75% 65%, rgba(0,140,200,0.09) 0%, transparent 45%),
+      radial-gradient(ellipse 40% 40% at 30% 15%, rgba(120,60,255,0.08) 0%, transparent 40%);
+    animation:nebula1 28s ease-in-out infinite;
+  }
+  #bg::after{
+    content:'';position:absolute;inset:-20%;
+    background:
+      radial-gradient(ellipse 50% 40% at 60% 35%, rgba(60,20,180,0.10) 0%, transparent 50%),
+      radial-gradient(ellipse 60% 50% at 25% 70%, rgba(0,100,180,0.08) 0%, transparent 50%),
+      radial-gradient(ellipse 30% 30% at 90% 80%, rgba(200,50,150,0.07) 0%, transparent 40%);
+    animation:nebula2 35s ease-in-out infinite;
+  }
+  svg{cursor:grab;position:relative;z-index:1}
+  svg:active{cursor:grabbing}
+  input::placeholder{color:#475569}
+  #zoom-in:hover,#zoom-out:hover{border-color:#a78bfa88;color:#e2e8f0}
+  #rotate-toggle:hover{border-color:#a78bfa;background:#a78bfa18}
+  #help-btn:hover{border-color:#a78bfa88;color:#e2e8f0}
+  #help-modal{display:none}
+  #help-modal.open{display:flex}
+  #help-got-it:hover{filter:brightness(1.15)}
+`;
 document.head.appendChild(style);
+
+// ── Help modal ───────────────────────────────────────────────────────────────
+document.getElementById("help-btn").onclick = () => document.getElementById("help-modal").classList.add("open");
+document.getElementById("help-close").onclick = () => document.getElementById("help-modal").classList.remove("open");
+document.getElementById("help-got-it").onclick = () => document.getElementById("help-modal").classList.remove("open");
+document.getElementById("help-modal").addEventListener("click", e => {
+  if (e.target === document.getElementById("help-modal")) document.getElementById("help-modal").classList.remove("open");
+});
 
 // ── Legend ───────────────────────────────────────────────────────────────────
 const legend = document.getElementById("legend");
@@ -180,7 +266,7 @@ function buildGraph(terms, conns) {
 
   // Zoom
   zoomBehavior = d3.zoom().scaleExtent([0.05, 4]).on("zoom", e => g.attr("transform", e.transform));
-  svg.call(zoomBehavior).call(zoomBehavior.transform, d3.zoomIdentity.translate(W / 2, H / 2).scale(0.6));
+  svg.call(zoomBehavior).call(zoomBehavior.transform, d3.zoomIdentity.translate(W / 2, H / 2).scale(0.28));
   svg.on("click", () => { resetHL(); closePanel(); });
 
   // Wire zoom buttons
@@ -208,10 +294,11 @@ function buildGraph(terms, conns) {
 
   // Simulation
   simulation = d3.forceSimulation(nodes)
-    .force("link", d3.forceLink(links).id(d => d.id).distance(d => 80 + Math.max(d.source.connectionCount || 0, d.target.connectionCount || 0) * 8).strength(0.3))
-    .force("charge", d3.forceManyBody().strength(-180))
-    .force("center", d3.forceCenter(0, 0))
-    .force("collision", d3.forceCollide().radius(d => nodeR(d) + 8));
+    .force("link", d3.forceLink(links).id(d => d.id).distance(d => 70 + Math.max(d.source.connectionCount || 0, d.target.connectionCount || 0) * 6).strength(0.4))
+    .force("charge", d3.forceManyBody().strength(-130))
+    .force("center", d3.forceCenter(0, 0).strength(0.18))
+    .force("gravity", d3.forceRadial(0, 0, 0).strength(0.012))
+    .force("collision", d3.forceCollide().radius(d => nodeR(d) + 6));
 
   simulation.on("tick", () => {
     linkG.selectAll("line")
