@@ -713,7 +713,7 @@ function closePanel() { panel.style.display = "none"; selectedTerm = null; setTi
       spawnAsteroid();
       // Refresh pool every 10 spawns
       if (poolIndex % 10 === 0) fetchNews();
-    }, 60000);
+    }, 5000);
   });
 })();
 
