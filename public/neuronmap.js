@@ -30,7 +30,6 @@ let rotAngle = 0;
 // ── DOM setup ─────────────────────────────────────────────────────────────────
 const app = document.getElementById("app");
 app.innerHTML = `
-  <div id="bg"></div>
   <div id="loader" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#04040e;z-index:999">
     <div id="spinner" style="font-size:32px;animation:spin 2s linear infinite">⬡</div>
     <div style="color:#a78bfa;font-size:16px;font-weight:600;margin-top:12px">NeuronMap</div>
@@ -96,34 +95,24 @@ app.innerHTML = `
 const style = document.createElement("style");
 style.textContent = `
   @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
-  @keyframes nebula1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(3%,5%) scale(1.08)}}
-  @keyframes nebula2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-4%,-3%) scale(1.12)}}
-  @keyframes nebula3{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(5%,-4%) scale(1.05)}}
-  @keyframes stardrift{from{transform:translateY(0)}to{transform:translateY(-4px)}}
-  html,body{background:#04040e}
-  #bg{
-    position:fixed;inset:0;z-index:0;overflow:hidden;
-    background:#04040e;
+  @keyframes nebulaFloat{
+    0%,100%{background-position:0% 50%}
+    33%{background-position:30% 20%}
+    66%{background-position:70% 80%}
   }
-  #bg::before{
-    content:'';position:absolute;inset:-20%;
+  html{background:#04040e}
+  body{
     background:
-      radial-gradient(ellipse 80% 60% at 15% 45%, rgba(88,28,235,0.18) 0%, transparent 60%),
-      radial-gradient(ellipse 60% 70% at 85% 20%, rgba(20,80,220,0.14) 0%, transparent 55%),
-      radial-gradient(ellipse 70% 50% at 50% 90%, rgba(180,20,100,0.10) 0%, transparent 50%),
-      radial-gradient(ellipse 50% 60% at 75% 65%, rgba(0,140,200,0.09) 0%, transparent 45%),
-      radial-gradient(ellipse 40% 40% at 30% 15%, rgba(120,60,255,0.08) 0%, transparent 40%);
-    animation:nebula1 28s ease-in-out infinite;
+      radial-gradient(ellipse 90% 70% at 12% 40%, rgba(100,30,255,0.38) 0%, transparent 55%),
+      radial-gradient(ellipse 70% 80% at 88% 18%, rgba(20,80,230,0.30) 0%, transparent 52%),
+      radial-gradient(ellipse 80% 55% at 50% 95%, rgba(200,20,110,0.26) 0%, transparent 48%),
+      radial-gradient(ellipse 55% 65% at 78% 68%, rgba(0,150,210,0.20) 0%, transparent 44%),
+      radial-gradient(ellipse 45% 45% at 28% 12%, rgba(130,50,255,0.22) 0%, transparent 42%),
+      #04040e;
+    background-size:200% 200%;
+    animation:nebulaFloat 40s ease-in-out infinite;
   }
-  #bg::after{
-    content:'';position:absolute;inset:-20%;
-    background:
-      radial-gradient(ellipse 50% 40% at 60% 35%, rgba(60,20,180,0.10) 0%, transparent 50%),
-      radial-gradient(ellipse 60% 50% at 25% 70%, rgba(0,100,180,0.08) 0%, transparent 50%),
-      radial-gradient(ellipse 30% 30% at 90% 80%, rgba(200,50,150,0.07) 0%, transparent 40%);
-    animation:nebula2 35s ease-in-out infinite;
-  }
-  svg{cursor:grab;position:relative;z-index:1}
+  svg{cursor:grab;background:transparent}
   svg:active{cursor:grabbing}
   input::placeholder{color:#475569}
   #zoom-in:hover,#zoom-out:hover{border-color:#a78bfa88;color:#e2e8f0}
@@ -251,13 +240,6 @@ function buildGraph(terms, conns) {
   glowNew.append("feGaussianBlur").attr("stdDeviation", "8").attr("result", "cb2");
   const fm2 = glowNew.append("feMerge"); fm2.append("feMergeNode").attr("in", "cb2"); fm2.append("feMergeNode").attr("in", "SourceGraphic");
 
-  // Link glow — white haze around connection lines
-  const linkGlow = defs.append("filter").attr("id", "link-glow")
-    .attr("x", "-100%").attr("y", "-100%").attr("width", "300%").attr("height", "300%");
-  linkGlow.append("feGaussianBlur").attr("in", "SourceGraphic").attr("stdDeviation", "2.5").attr("result", "blur");
-  const fm3 = linkGlow.append("feMerge");
-  fm3.append("feMergeNode").attr("in", "blur");
-  fm3.append("feMergeNode").attr("in", "SourceGraphic");
 
   // ── IMPORTANT: declare g and rotG BEFORE zoom setup (TDZ safety) ──────────
   const g = svg.append("g");
@@ -281,11 +263,10 @@ function buildGraph(terms, conns) {
     btn.style.borderColor = rotating ? "#a78bfa44" : "#1e2030";
   };
 
-  // Links — white glow applied once on the group (not per-line, much faster)
-  const linkG = rotG.append("g").attr("filter", "url(#link-glow)");
+  // Links — plain bright stroke, no filter (filters are expensive at scale)
+  const linkG = rotG.append("g");
   linkG.selectAll("line").data(links).join("line")
-    .attr("stroke", "rgba(255,255,255,0.18)")
-    .attr("stroke-opacity", 1)
+    .attr("stroke", "rgba(255,255,255,0.22)")
     .attr("stroke-width", d => 0.5 + (d.weight || 1) * 0.3);
 
   // Nodes
@@ -294,6 +275,7 @@ function buildGraph(terms, conns) {
 
   // Simulation
   simulation = d3.forceSimulation(nodes)
+    .alphaDecay(0.04)
     .force("link", d3.forceLink(links).id(d => d.id).distance(d => 70 + Math.max(d.source.connectionCount || 0, d.target.connectionCount || 0) * 6).strength(0.4))
     .force("charge", d3.forceManyBody().strength(-130))
     .force("center", d3.forceCenter(0, 0).strength(0.18))
@@ -382,8 +364,7 @@ function addNode(term, newConns) {
   simulation.force("link").links(links);
 
   gSel.select("g").selectAll("line").data(links).join("line")
-    .attr("stroke", "rgba(255,255,255,0.18)")
-    .attr("stroke-opacity", 1)
+    .attr("stroke", "rgba(255,255,255,0.22)")
     .attr("stroke-width", d => 0.5 + (d.weight || 1) * 0.3);
 
   const ng = gSel.selectAll(".node-g").data(nodes, d => d.id);
@@ -458,7 +439,7 @@ function resetHL() {
   if (!gSel) return;
   gSel.selectAll(".node-g").attr("opacity", 1);
   gSel.selectAll("line")
-    .attr("stroke", "rgba(255,255,255,0.18)")
+    .attr("stroke", "rgba(255,255,255,0.22)")
     .attr("stroke-opacity", 1);
 }
 
