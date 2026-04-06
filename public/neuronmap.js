@@ -500,7 +500,19 @@ function openPanel(d) {
       <button class="tab" data-tab="eli5" style="background:none;border:none;cursor:pointer;padding:12px 4px;margin-right:20px;font-size:12px;font-weight:500;color:#475569;border-bottom:2px solid transparent">Explain like I'm 5</button>
       <button class="tab" data-tab="rel" style="background:none;border:none;cursor:pointer;padding:12px 4px;font-size:12px;font-weight:500;color:#475569;border-bottom:2px solid transparent">Related</button>
     </div>
-    <div id="tab-content" style="flex:1;overflow-y:auto;padding:20px"></div>`;
+    <div id="tab-content" style="overflow-y:auto;padding:20px;flex:1;min-height:0"></div>
+    <div id="qa-section" style="border-top:1px solid rgba(167,139,250,0.15);padding:14px 16px;background:rgba(88,28,235,0.05);flex-shrink:0">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span style="font-size:11px;font-weight:700;color:#a78bfa;text-transform:uppercase;letter-spacing:.5px">✦ Ask a follow-up</span>
+        <span id="qa-counter" style="font-size:10px;color:#475569;background:rgba(255,255,255,0.05);border-radius:20px;padding:2px 8px">5 questions left</span>
+      </div>
+      <div id="qa-history" style="max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;margin-bottom:10px"></div>
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <textarea id="qa-input" placeholder="Ask anything about ${d.name} or AI..." rows="2"
+          style="flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(167,139,250,0.25);border-radius:8px;color:#e2e8f0;font-size:12px;padding:8px 10px;resize:none;outline:none;font-family:inherit;line-height:1.5;caret-color:#a78bfa"></textarea>
+        <button id="qa-send" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;border-radius:8px;color:#fff;font-size:16px;width:36px;height:36px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">↑</button>
+      </div>
+    </div>`;
 
   showTab("def", d, related, clr);
 
@@ -511,6 +523,64 @@ function openPanel(d) {
       btn.style.color = clr; btn.style.borderBottomColor = clr;
       showTab(btn.dataset.tab, d, related, clr);
     };
+  });
+
+  // Q&A logic
+  let qaCount = 0;
+  const maxQ = 5;
+  const history = [];
+
+  function updateCounter() {
+    const left = maxQ - qaCount;
+    const el = document.getElementById("qa-counter");
+    if (el) el.textContent = left > 0 ? `${left} question${left !== 1 ? "s" : ""} left` : "Limit reached";
+    const inp = document.getElementById("qa-input");
+    const btn = document.getElementById("qa-send");
+    if (inp && left === 0) { inp.disabled = true; inp.placeholder = "You've used all 5 questions for this term."; inp.style.opacity = "0.4"; }
+    if (btn && left === 0) { btn.disabled = true; btn.style.opacity = "0.4"; }
+  }
+
+  async function sendQuestion() {
+    const inp = document.getElementById("qa-input");
+    if (!inp) return;
+    const q = inp.value.trim();
+    if (!q || qaCount >= maxQ) return;
+    inp.value = "";
+    qaCount++;
+    updateCounter();
+
+    const histEl = document.getElementById("qa-history");
+    if (!histEl) return;
+
+    // User bubble
+    histEl.insertAdjacentHTML("beforeend", `
+      <div style="align-self:flex-end;background:rgba(124,58,237,0.25);border:1px solid rgba(167,139,250,0.3);border-radius:10px 10px 2px 10px;padding:8px 12px;max-width:90%;font-size:12px;color:#e2e8f0;line-height:1.5">${q}</div>
+      <div id="qa-thinking-${qaCount}" style="align-self:flex-start;display:flex;align-items:center;gap:6px;font-size:12px;color:#a78bfa;font-weight:600"><span style="animation:spin 1s linear infinite">◌</span> Thinking...</div>`);
+    histEl.scrollTop = histEl.scrollHeight;
+
+    try {
+      const res = await fetch("/api/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ termName: d.name, definition: d.definition, question: q, history }),
+      });
+      const data = await res.json();
+      const answer = data.answer || "Could not get a response.";
+      history.push({ q, a: answer });
+
+      const thinking = document.getElementById(`qa-thinking-${qaCount}`);
+      if (thinking) thinking.outerHTML = `
+        <div style="align-self:flex-start;background:rgba(15,20,40,0.8);border:1px solid rgba(255,255,255,0.08);border-radius:10px 10px 10px 2px;padding:8px 12px;max-width:95%;font-size:12px;color:#c8ccd4;line-height:1.6">${answer}</div>`;
+    } catch {
+      const thinking = document.getElementById(`qa-thinking-${qaCount}`);
+      if (thinking) thinking.outerHTML = `<div style="font-size:12px;color:#f87171">Failed. Try again.</div>`;
+    }
+    histEl.scrollTop = histEl.scrollHeight;
+  }
+
+  document.getElementById("qa-send").addEventListener("click", sendQuestion);
+  document.getElementById("qa-input").addEventListener("keydown", e => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendQuestion(); }
   });
 }
 
