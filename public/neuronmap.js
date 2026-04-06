@@ -195,13 +195,12 @@ function buildGraph(terms, conns) {
     btn.style.borderColor = rotating ? "#a78bfa44" : "#1e2030";
   };
 
-  // Links — white glow
-  const linkG = rotG.append("g");
+  // Links — white glow applied once on the group (not per-line, much faster)
+  const linkG = rotG.append("g").attr("filter", "url(#link-glow)");
   linkG.selectAll("line").data(links).join("line")
     .attr("stroke", "rgba(255,255,255,0.18)")
     .attr("stroke-opacity", 1)
-    .attr("stroke-width", d => 0.5 + (d.weight || 1) * 0.3)
-    .attr("filter", "url(#link-glow)");
+    .attr("stroke-width", d => 0.5 + (d.weight || 1) * 0.3);
 
   // Nodes
   const nodeG = rotG.append("g");
@@ -298,8 +297,7 @@ function addNode(term, newConns) {
   gSel.select("g").selectAll("line").data(links).join("line")
     .attr("stroke", "rgba(255,255,255,0.18)")
     .attr("stroke-opacity", 1)
-    .attr("stroke-width", d => 0.5 + (d.weight || 1) * 0.3)
-    .attr("filter", "url(#link-glow)");
+    .attr("stroke-width", d => 0.5 + (d.weight || 1) * 0.3);
 
   const ng = gSel.selectAll(".node-g").data(nodes, d => d.id);
   const entered = ng.enter().append("g").attr("class", "node-g").attr("cursor", "pointer")
@@ -367,18 +365,14 @@ function highlightNode(d) {
       const s = l.source.id || l.source, t = l.target.id || l.target;
       return (s === d.id || t === d.id) ? 0.95 : 0.4;
     })
-    .attr("filter", l => {
-      const s = l.source.id || l.source, t = l.target.id || l.target;
-      return (s === d.id || t === d.id) ? "url(#glow)" : "url(#link-glow)";
-    });
+;
 }
 function resetHL() {
   if (!gSel) return;
   gSel.selectAll(".node-g").attr("opacity", 1);
   gSel.selectAll("line")
     .attr("stroke", "rgba(255,255,255,0.18)")
-    .attr("stroke-opacity", 1)
-    .attr("filter", "url(#link-glow)");
+    .attr("stroke-opacity", 1);
 }
 
 // ── Flash ─────────────────────────────────────────────────────────────────────
