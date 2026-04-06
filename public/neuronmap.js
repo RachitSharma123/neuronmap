@@ -156,13 +156,13 @@ function buildGraph(terms, conns) {
   glowNew.append("feGaussianBlur").attr("stdDeviation", "8").attr("result", "cb2");
   const fm2 = glowNew.append("feMerge"); fm2.append("feMergeNode").attr("in", "cb2"); fm2.append("feMergeNode").attr("in", "SourceGraphic");
 
+  const g = svg.append("g");
+  gSel = g;
+
   // Zoom
   const zoom = d3.zoom().scaleExtent([0.05, 4]).on("zoom", e => g.attr("transform", e.transform));
   svg.call(zoom).call(zoom.transform, d3.zoomIdentity.translate(W / 2, H / 2).scale(0.6));
   svg.on("click", () => { resetHL(); closePanel(); });
-
-  const g = svg.append("g");
-  gSel = g;
 
   // Links
   const linkG = g.append("g");
