@@ -16,10 +16,9 @@ const COLORS = {
 const color = (cat) => COLORS[cat] || "#94a3b8";
 const nodeR = (n) => Math.max(4, Math.min(18, 4 + Math.sqrt(n.connectionCount || 0) * 2.5));
 
-// ── Read config injected by Astro ────────────────────────────────────────────
-const scriptEl = document.currentScript;
-const SUPA_URL = scriptEl?.dataset.supabaseUrl;
-const SUPA_KEY = scriptEl?.dataset.supabaseKey;
+// ── Read config injected by Astro via window.NM ──────────────────────────────
+const SUPA_URL = window.NM?.url;
+const SUPA_KEY = window.NM?.key;
 
 // ── State ────────────────────────────────────────────────────────────────────
 let nodes = [], links = [], simulation, gSel, svgSel;
@@ -86,14 +85,12 @@ function applyFilter() {
 
 // ── Main init ─────────────────────────────────────────────────────────────────
 async function init() {
-  // Wait for D3 + Supabase to be available (they're CDN scripts, should be instant)
-  let attempts = 0;
-  while ((!window.d3 || !window.supabase) && attempts < 50) {
-    await new Promise(r => setTimeout(r, 100));
-    attempts++;
-  }
   if (!window.d3 || !window.supabase) {
-    showError("CDN failed to load. Check your connection.");
+    showError("D3/Supabase CDN not loaded. Try a hard refresh (Ctrl+Shift+R).");
+    return;
+  }
+  if (!SUPA_URL || !SUPA_KEY) {
+    showError("Supabase config missing. Check Vercel env vars.");
     return;
   }
 

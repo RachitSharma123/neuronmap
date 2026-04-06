@@ -1,5 +1,6 @@
 ---
-// No server-side data fetching — all handled client-side in neuronmap.js
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
 ---
 <!DOCTYPE html>
 <html lang="en">
@@ -9,8 +10,16 @@
     <title>NeuronMap — AI Knowledge Graph</title>
     <meta name="description" content="The only AI glossary that teaches you connections, not just definitions." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- Inject Supabase config as global before anything else -->
+    <script define:vars={{ supabaseUrl, supabaseKey }}>
+      window.NM = { url: supabaseUrl, key: supabaseKey };
+    </script>
+
+    <!-- CDN libs — blocking scripts, load before defer scripts below -->
     <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a0f; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #e2e8f0; }
@@ -18,11 +27,7 @@
   </head>
   <body>
     <div id="app"></div>
-    <script
-      type="module"
-      src="/neuronmap.js"
-      data-supabase-url={import.meta.env.PUBLIC_SUPABASE_URL}
-      data-supabase-key={import.meta.env.PUBLIC_SUPABASE_ANON_KEY}
-    ></script>
+    <!-- defer (NOT type=module) so Astro won't bundle it, runs after DOM + CDN scripts -->
+    <script src="/neuronmap.js" defer></script>
   </body>
 </html>
