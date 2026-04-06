@@ -109,12 +109,12 @@ style.textContent = `
 document.head.appendChild(style);
 
 // ── Help modal ───────────────────────────────────────────────────────────────
-document.getElementById("help-btn").onclick = () => document.getElementById("help-modal").classList.add("open");
-document.getElementById("help-close").onclick = () => document.getElementById("help-modal").classList.remove("open");
-document.getElementById("help-got-it").onclick = () => document.getElementById("help-modal").classList.remove("open");
-document.getElementById("help-modal").addEventListener("click", e => {
-  if (e.target === document.getElementById("help-modal")) document.getElementById("help-modal").classList.remove("open");
-});
+const helpModal = document.getElementById("help-modal");
+const closeHelp = () => { helpModal.classList.remove("open"); setTimeout(() => { rotating = true; }, 600); };
+document.getElementById("help-btn").onclick = () => { helpModal.classList.add("open"); rotating = false; };
+document.getElementById("help-close").onclick = closeHelp;
+document.getElementById("help-got-it").onclick = closeHelp;
+helpModal.addEventListener("click", e => { if (e.target === helpModal) closeHelp(); });
 
 // ── Legend ───────────────────────────────────────────────────────────────────
 const legend = document.getElementById("legend");
@@ -261,12 +261,11 @@ function buildGraph(terms, conns) {
 
   // Simulation
   simulation = d3.forceSimulation(nodes)
-    .alphaDecay(0.04)
-    .force("link", d3.forceLink(links).id(d => d.id).distance(d => 70 + Math.max(d.source.connectionCount || 0, d.target.connectionCount || 0) * 6).strength(0.4))
-    .force("charge", d3.forceManyBody().strength(-130))
-    .force("center", d3.forceCenter(0, 0).strength(0.18))
-    .force("gravity", d3.forceRadial(0, 0, 0).strength(0.012))
-    .force("collision", d3.forceCollide().radius(d => nodeR(d) + 6));
+    .alphaDecay(0.03)
+    .force("link", d3.forceLink(links).id(d => d.id).distance(d => 45 + Math.max(d.source.connectionCount || 0, d.target.connectionCount || 0) * 3).strength(0.7))
+    .force("charge", d3.forceManyBody().strength(-80))
+    .force("center", d3.forceCenter(0, 0).strength(0.6))
+    .force("collision", d3.forceCollide().radius(d => nodeR(d) + 4));
 
   simulation.on("tick", () => {
     linkG.selectAll("line")
@@ -313,10 +312,12 @@ function renderNodes(parent, data) {
   ng.append("circle").attr("class", "dot").attr("r", d => nodeR(d))
     .attr("fill", d => color(d.category)).attr("fill-opacity", 0.9).attr("filter", "url(#glow)");
 
-  ng.filter(d => d.connectionCount >= 3).append("text")
-    .attr("dy", d => nodeR(d) + 12).attr("text-anchor", "middle")
-    .attr("fill", "#c8ccd4").attr("pointer-events", "none")
-    .attr("font-size", d => Math.max(9, Math.min(13, 8 + d.connectionCount * 0.4)))
+  ng.filter(d => d.connectionCount >= 1).append("text")
+    .attr("dy", d => nodeR(d) + 15).attr("text-anchor", "middle")
+    .attr("fill", "#dde2f0").attr("pointer-events", "none")
+    .attr("font-weight", d => d.connectionCount >= 5 ? "600" : "400")
+    .attr("font-size", d => Math.max(12, Math.min(17, 11 + d.connectionCount * 0.5)))
+    .style("text-shadow", "0 1px 4px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.7)")
     .text(d => d.name);
 
   ng.on("mouseenter", function(e, d) {
@@ -373,9 +374,11 @@ function addNode(term, newConns) {
   entered.append("circle").attr("class", "dot").attr("r", d => nodeR(d))
     .attr("fill", d => color(d.category)).attr("fill-opacity", 0.9).attr("filter", "url(#glow-new)")
     .transition().duration(3000).attr("filter", "url(#glow)");
-  entered.filter(d => d.connectionCount >= 3).append("text")
-    .attr("dy", d => nodeR(d) + 12).attr("text-anchor", "middle")
-    .attr("fill", "#c8ccd4").attr("pointer-events", "none").attr("font-size", 10).text(d => d.name);
+  entered.filter(d => d.connectionCount >= 1).append("text")
+    .attr("dy", d => nodeR(d) + 15).attr("text-anchor", "middle")
+    .attr("fill", "#dde2f0").attr("pointer-events", "none").attr("font-size", 13)
+    .style("text-shadow", "0 1px 4px rgba(0,0,0,0.9)")
+    .text(d => d.name);
   entered.on("mouseenter", function(e, d) { e.stopPropagation(); showTooltip(e, d); highlightNode(d); })
     .on("mousemove", e => moveTooltip(e)).on("mouseleave", () => { hideTooltip(); resetHL(); })
     .on("click", (e, d) => { e.stopPropagation(); openPanel(d); hideTooltip(); });
