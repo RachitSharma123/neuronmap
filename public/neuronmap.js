@@ -36,8 +36,8 @@ app.innerHTML = `
     <div style="color:#475569;font-size:12px;margin-top:6px">Loading knowledge graph...</div>
   </div>
   <svg id="graph" style="width:100vw;height:100vh;display:block;position:relative;z-index:1"></svg>
-  <div id="topbar" style="position:fixed;top:16px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:12px;background:rgba(4,4,20,0.85);backdrop-filter:blur(16px);border:1px solid rgba(167,139,250,0.15);border-radius:12px;padding:8px 16px;z-index:10;box-shadow:0 4px 32px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,0.03)">
-    <span style="font-size:15px;font-weight:700;color:#e2e8f0;letter-spacing:-.3px">✦ AI Graph</span>
+  <div id="topbar" style="position:fixed;top:16px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,rgba(88,28,235,0.35) 0%,rgba(15,60,200,0.30) 50%,rgba(88,28,235,0.25) 100%);backdrop-filter:blur(20px);border:1px solid rgba(167,139,250,0.45);border-radius:14px;padding:9px 18px;z-index:10;box-shadow:0 4px 40px rgba(88,28,235,0.3),0 0 0 1px rgba(255,255,255,0.06),inset 0 1px 0 rgba(255,255,255,0.1)">
+    <span style="font-size:15px;font-weight:800;background:linear-gradient(90deg,#c4b5fd,#818cf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-.3px">✦ AI Graph</span>
     <div style="width:1px;height:18px;background:#1e2030"></div>
     <input id="search" placeholder="Search terms..." style="background:transparent;border:none;outline:none;color:#c8ccd4;font-size:13px;width:180px;caret-color:#a78bfa" />
     <div style="width:1px;height:18px;background:#1e2030"></div>
@@ -48,7 +48,21 @@ app.innerHTML = `
     <button id="rotate-toggle" title="Toggle rotation" style="background:none;border:1px solid #a78bfa44;border-radius:6px;color:#a78bfa;font-size:13px;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;transition:all .15s">⟳</button>
     <button id="help-btn" title="How to use" style="background:none;border:1px solid #1e2030;border-radius:6px;color:#64748b;font-size:12px;font-weight:700;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;transition:all .15s">?</button>
   </div>
-  <div id="legend" style="position:fixed;bottom:24px;left:24px;display:flex;flex-direction:column;gap:4px;z-index:10"></div>
+  <div id="booklet" style="position:fixed;top:80px;left:16px;z-index:10;width:200px">
+    <div id="booklet-header" style="display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(88,28,235,0.3),rgba(15,60,200,0.25));border:1px solid rgba(167,139,250,0.35);border-radius:10px 10px 0 0;padding:8px 12px;cursor:pointer;user-select:none">
+      <span style="font-size:11px;font-weight:700;color:#c4b5fd;letter-spacing:.5px;text-transform:uppercase">📖 How to use</span>
+      <span id="booklet-arrow" style="font-size:10px;color:#a78bfa;transition:transform .2s">▲</span>
+    </div>
+    <div id="booklet-body" style="background:rgba(4,4,18,0.92);border:1px solid rgba(167,139,250,0.2);border-top:none;border-radius:0 0 10px 10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;backdrop-filter:blur(12px)">
+      <div style="display:flex;gap:8px;align-items:flex-start"><span style="font-size:13px">🖱️</span><span style="font-size:11px;color:#94a3b8;line-height:1.5"><b style="color:#c8ccd4">Drag</b> to pan · <b style="color:#c8ccd4">Scroll</b> to zoom</span></div>
+      <div style="display:flex;gap:8px;align-items:flex-start"><span style="font-size:13px">✨</span><span style="font-size:11px;color:#94a3b8;line-height:1.5"><b style="color:#c8ccd4">Click</b> any node — get definition + ELI5</span></div>
+      <div style="display:flex;gap:8px;align-items:flex-start"><span style="font-size:13px">🔍</span><span style="font-size:11px;color:#94a3b8;line-height:1.5"><b style="color:#c8ccd4">Hover</b> to highlight connections</span></div>
+      <div style="display:flex;gap:8px;align-items:flex-start"><span style="font-size:13px">🏷️</span><span style="font-size:11px;color:#94a3b8;line-height:1.5"><b style="color:#c8ccd4">Legend</b> below — filter by category</span></div>
+      <div style="display:flex;gap:8px;align-items:flex-start"><span style="font-size:13px">⟳</span><span style="font-size:11px;color:#94a3b8;line-height:1.5"><b style="color:#c8ccd4">Rotation</b> pauses when you read</span></div>
+      <div style="display:flex;gap:8px;align-items:flex-start"><span style="font-size:13px">🤖</span><span style="font-size:11px;color:#94a3b8;line-height:1.5">New term added <b style="color:#c8ccd4">every hour</b> by AI</span></div>
+    </div>
+  </div>
+  <div id="legend" style="position:fixed;bottom:24px;left:16px;display:flex;flex-direction:column;gap:4px;z-index:10"></div>
   <div id="tooltip" style="display:none;position:fixed;pointer-events:none;z-index:100;max-width:260px;border-radius:8px;padding:10px 14px;background:rgba(4,4,20,.97);box-shadow:0 8px 32px rgba(0,0,0,.6)"></div>
   <div id="panel" style="display:none;position:fixed;right:0;top:0;bottom:0;width:360px;background:rgba(4,4,18,.97);border-left:1px solid #1e2030;flex-direction:column;z-index:50;backdrop-filter:blur(20px);box-shadow:-8px 0 48px rgba(0,0,0,.6)"></div>
   <div id="flash" style="display:none;position:fixed;top:70px;left:50%;transform:translateX(-50%);background:rgba(167,139,250,.12);border:1px solid #a78bfa44;border-radius:8px;padding:8px 16px;z-index:20;color:#a78bfa;font-size:12px;font-weight:500"></div>
@@ -109,6 +123,15 @@ style.textContent = `
 document.head.appendChild(style);
 
 // ── Help modal ───────────────────────────────────────────────────────────────
+// ── Booklet toggle ────────────────────────────────────────────────────────────
+document.getElementById("booklet-header").addEventListener("click", () => {
+  const body = document.getElementById("booklet-body");
+  const arrow = document.getElementById("booklet-arrow");
+  const open = body.style.display !== "none";
+  body.style.display = open ? "none" : "flex";
+  arrow.style.transform = open ? "rotate(180deg)" : "rotate(0deg)";
+});
+
 const helpModal = document.getElementById("help-modal");
 const closeHelp = () => { helpModal.classList.remove("open"); setTimeout(() => { rotating = true; }, 600); };
 document.getElementById("help-btn").onclick = () => { helpModal.classList.add("open"); rotating = false; };
@@ -494,7 +517,25 @@ function openPanel(d) {
 function showTab(tab, d, related, clr) {
   const content = document.getElementById("tab-content");
   if (tab === "def") {
-    content.innerHTML = `<p style="font-size:14px;color:#b0b8cc;line-height:1.7">${d.definition}</p>`;
+    content.innerHTML = `
+      <p style="font-size:14px;color:#b0b8cc;line-height:1.7;margin-bottom:20px">${d.definition}</p>
+      <div style="border-top:1px solid rgba(167,139,250,0.15);padding-top:16px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <div style="font-size:14px;font-weight:800;color:#a78bfa;letter-spacing:-.2px">✦ Explain like I'm 5</div>
+          <div id="eli5-spinner" style="animation:spin 1s linear infinite;color:#a78bfa;font-size:13px">◌</div>
+        </div>
+        <div id="eli5-text" style="font-size:14px;color:#64748b;font-style:italic">Loading...</div>
+      </div>`;
+    fetch("/api/eli5", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ termName: d.name, definition: d.definition }) })
+      .then(r => r.json()).then(data => {
+        const spinner = document.getElementById("eli5-spinner");
+        const eli5text = document.getElementById("eli5-text");
+        if (spinner) spinner.style.display = "none";
+        if (eli5text) { eli5text.style.color = "#d4d8e8"; eli5text.textContent = `"${data.explanation || "Could not generate."}"` ; }
+      }).catch(() => {
+        const eli5text = document.getElementById("eli5-text");
+        if (eli5text) { eli5text.style.color = "#f87171"; eli5text.textContent = "Failed to load. Try again."; }
+      });
   } else if (tab === "eli5") {
     content.innerHTML = `<div style="display:flex;align-items:center;gap:10px;color:#a78bfa;font-size:14px;font-weight:600"><div style="animation:spin 1s linear infinite">◌</div>Thinking...</div>`;
     fetch("/api/eli5", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ termName: d.name, definition: d.definition }) })
