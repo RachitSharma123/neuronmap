@@ -166,12 +166,12 @@ function buildGraph(terms, conns) {
 
   // Links
   const linkG = g.append("g");
-  let linkSel = linkG.selectAll("line").data(links).join("line")
+  linkG.selectAll("line").data(links).join("line")
     .attr("stroke", "#1e2030").attr("stroke-opacity", 0.6).attr("stroke-width", d => 0.5 + (d.weight || 1) * 0.3);
 
   // Nodes
   const nodeG = g.append("g");
-  let nodeSel = renderNodes(nodeG, nodes, linkSel, nodeSel);
+  renderNodes(nodeG, nodes);
 
   // Simulation
   simulation = d3.forceSimulation(nodes)
@@ -192,7 +192,7 @@ function buildGraph(terms, conns) {
   });
 }
 
-function renderNodes(parent, data, linkSel) {
+function renderNodes(parent, data) {
   const d3 = window.d3;
   const ng = parent.selectAll(".node-g").data(data, d => d.id).join("g")
     .attr("class", "node-g").attr("cursor", "pointer")
