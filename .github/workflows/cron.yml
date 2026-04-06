@@ -11,6 +11,6 @@ jobs:
     steps:
       - name: Ping cron endpoint
         run: |
-          curl -s -X GET "${{ secrets.VERCEL_APP_URL }}/api/cron" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            | jq .
+          response=$(curl -s -X GET "${{ secrets.VERCEL_APP_URL }}/api/cron" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          echo "Response: $response"
