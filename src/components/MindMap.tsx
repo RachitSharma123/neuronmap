@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import * as d3 from "d3";
-import { getSupabaseClient } from "../lib/supabase";
+import { createClient } from "@supabase/supabase-js";
 import type { Term, Connection } from "../lib/supabase";
 import NodePanel from "./NodePanel";
+
+const SUPABASE_URL = import.meta.env.PUBLIC_SUPABASE_URL as string;
+const SUPABASE_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY as string;
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
 // ─── Category colors (Obsidian-inspired) ────────────────────────────────────
 const CATEGORY_COLORS: Record<string, string> = {
@@ -37,12 +41,7 @@ interface GraphLink extends d3.SimulationLinkDatum<GraphNode> {
   weight: number;
 }
 
-interface Props {
-  initialTerms: Term[];
-  initialConnections: Connection[];
-}
-
-export default function MindMap({ initialTerms, initialConnections }: Props) {
+export default function MindMap() {
   const svgRef = useRef<SVGSVGElement>(null);
   const simRef = useRef<d3.Simulation<GraphNode, GraphLink> | null>(null);
   const nodesRef = useRef<GraphNode[]>([]);
@@ -51,10 +50,12 @@ export default function MindMap({ initialTerms, initialConnections }: Props) {
 
   const [selectedTerm, setSelectedTerm] = useState<Term | null>(null);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; term: GraphNode } | null>(null);
-  const [termCount, setTermCount] = useState(initialTerms.length);
+  const [termCount, setTermCount] = useState(0);
   const [newFlash, setNewFlash] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // ─── Build initial graph data ─────────────────────────────────────────────
   const buildGraph = useCallback((terms: Term[], connections: Connection[]) => {
@@ -84,6 +85,32 @@ export default function MindMap({ initialTerms, initialConnections }: Props) {
 
   // ─── D3 Render ────────────────────────────────────────────────────────────
   useEffect(() => {
+    let cancelled = false;
+
+    async function fetchAndRender() {
+      try {
+        const [{ data: terms, error: e1 }, { data: connections, error: e2 }] = await Promise.all([
+          supabase.from("terms").select("id, name, full_name, category, definition, created_at").order("created_at"),
+          supabase.from("connections").select("from_id, to_id, weight"),
+        ]);
+
+        if (e1 || e2) throw new Error((e1 || e2)?.message);
+        if (cancelled) return;
+
+        setTermCount(terms?.length ?? 0);
+        setLoading(false);
+        renderGraph(terms ?? [], connections ?? []);
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : "Failed to load");
+        setLoading(false);
+      }
+    }
+
+    fetchAndRender();
+    return () => { cancelled = true; };
+  }, []);
+
+  function renderGraph(initialTerms: Term[], initialConnections: Connection[]) {
     if (!svgRef.current) return;
 
     const { nodes, links } = buildGraph(initialTerms, initialConnections);
@@ -266,11 +293,10 @@ export default function MindMap({ initialTerms, initialConnections }: Props) {
       simulation.stop();
       window.removeEventListener("resize", handleResize);
     };
-  }, []);
+  }
 
   // ─── Supabase Realtime subscription ────────────────────────────────────────
   useEffect(() => {
-    const supabase = getSupabaseClient();
 
     const channel = supabase
       .channel("terms-live")
@@ -290,7 +316,7 @@ export default function MindMap({ initialTerms, initialConnections }: Props) {
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => { void supabase.removeChannel(channel); };
   }, []);
 
   // ─── Add node to live simulation ─────────────────────────────────────────
@@ -496,8 +522,27 @@ export default function MindMap({ initialTerms, initialConnections }: Props) {
 
   const categories = Object.keys(CATEGORY_COLORS);
 
+  if (loadError) return (
+    <div style={{ width: "100vw", height: "100vh", background: "#0a0a0f", display: "flex", alignItems: "center", justifyContent: "center", color: "#f87171", fontFamily: "sans-serif", fontSize: 14 }}>
+      Failed to load: {loadError}
+    </div>
+  );
+
   return (
     <div style={{ position: "relative", width: "100vw", height: "100vh", background: "#0a0a0f", overflow: "hidden" }}>
+
+      {/* ── Loading overlay ── */}
+      {loading && (
+        <div style={{
+          position: "absolute", inset: 0, display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center", zIndex: 200, background: "#0a0a0f",
+        }}>
+          <div style={{ fontSize: 28, marginBottom: 16, animation: "spin 2s linear infinite", display: "inline-block" }}>⬡</div>
+          <div style={{ color: "#a78bfa", fontSize: 16, fontWeight: 600 }}>NeuronMap</div>
+          <div style={{ color: "#475569", fontSize: 12, marginTop: 6 }}>Loading knowledge graph...</div>
+          <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+        </div>
+      )}
       {/* ── SVG Graph ── */}
       <svg ref={svgRef} style={{ width: "100%", height: "100%", display: "block" }} />
 

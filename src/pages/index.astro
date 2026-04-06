@@ -1,13 +1,5 @@
 ---
-import { getSupabaseAdmin } from "../lib/supabase";
 import MindMap from "../components/MindMap";
-
-const supabase = getSupabaseAdmin();
-
-const [{ data: terms }, { data: connections }] = await Promise.all([
-  supabase.from("terms").select("id, name, full_name, category, definition, created_at").order("created_at"),
-  supabase.from("connections").select("from_id, to_id, weight"),
-]);
 ---
 
 <!DOCTYPE html>
@@ -26,11 +18,7 @@ const [{ data: terms }, { data: connections }] = await Promise.all([
   </head>
   <body>
     <div id="root">
-      <MindMap
-        client:load
-        initialTerms={terms ?? []}
-        initialConnections={connections ?? []}
-      />
+      <MindMap client:load />
     </div>
   </body>
 </html>
