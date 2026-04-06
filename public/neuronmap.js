@@ -52,6 +52,7 @@ app.innerHTML = `
   <div id="tooltip" style="display:none;position:fixed;pointer-events:none;z-index:100;max-width:260px;border-radius:8px;padding:10px 14px;background:rgba(4,4,20,.97);box-shadow:0 8px 32px rgba(0,0,0,.6)"></div>
   <div id="panel" style="display:none;position:fixed;right:0;top:0;bottom:0;width:360px;background:rgba(4,4,18,.97);border-left:1px solid #1e2030;flex-direction:column;z-index:50;backdrop-filter:blur(20px);box-shadow:-8px 0 48px rgba(0,0,0,.6)"></div>
   <div id="flash" style="display:none;position:fixed;top:70px;left:50%;transform:translateX(-50%);background:rgba(167,139,250,.12);border:1px solid #a78bfa44;border-radius:8px;padding:8px 16px;z-index:20;color:#a78bfa;font-size:12px;font-weight:500"></div>
+  <div style="position:fixed;bottom:20px;right:20px;z-index:10;font-size:11px;color:rgba(255,255,255,0.22);letter-spacing:.3px;font-weight:500;pointer-events:none;user-select:none">crafted by <span style="color:rgba(167,139,250,0.55);font-weight:600">Rachit Sharma</span></div>
   <div id="help-modal" style="display:none;position:fixed;inset:0;z-index:200;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px)">
     <div style="background:linear-gradient(135deg,rgba(10,8,28,0.98),rgba(4,4,18,0.98));border:1px solid rgba(167,139,250,0.25);border-radius:16px;padding:28px 32px;max-width:480px;width:90%;box-shadow:0 24px 80px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,0.03),inset 0 1px 0 rgba(255,255,255,0.06)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
@@ -95,23 +96,6 @@ app.innerHTML = `
 const style = document.createElement("style");
 style.textContent = `
   @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
-  @keyframes nebulaFloat{
-    0%,100%{background-position:0% 50%}
-    33%{background-position:30% 20%}
-    66%{background-position:70% 80%}
-  }
-  html{background:#04040e}
-  body{
-    background:
-      radial-gradient(ellipse 90% 70% at 12% 40%, rgba(100,30,255,0.38) 0%, transparent 55%),
-      radial-gradient(ellipse 70% 80% at 88% 18%, rgba(20,80,230,0.30) 0%, transparent 52%),
-      radial-gradient(ellipse 80% 55% at 50% 95%, rgba(200,20,110,0.26) 0%, transparent 48%),
-      radial-gradient(ellipse 55% 65% at 78% 68%, rgba(0,150,210,0.20) 0%, transparent 44%),
-      radial-gradient(ellipse 45% 45% at 28% 12%, rgba(130,50,255,0.22) 0%, transparent 42%),
-      #04040e;
-    background-size:200% 200%;
-    animation:nebulaFloat 40s ease-in-out infinite;
-  }
   svg{cursor:grab;background:transparent}
   svg:active{cursor:grabbing}
   input::placeholder{color:#475569}
@@ -153,6 +137,8 @@ function toggleCategory(cat) {
 }
 
 // ── Search ───────────────────────────────────────────────────────────────────
+document.getElementById("search").addEventListener("focus", () => { rotating = false; });
+document.getElementById("search").addEventListener("blur",  () => { if (!selectedTerm) setTimeout(() => { rotating = true; }, 800); });
 document.getElementById("search").addEventListener("input", applyFilter);
 
 function applyFilter() {
@@ -407,7 +393,8 @@ function showTooltip(e, d) {
     <div style="font-size:13px;font-weight:700;color:#e2e8f0;margin-bottom:4px">${d.name}</div>
     ${d.full_name !== d.name ? `<div style="font-size:10px;color:#64748b;margin-bottom:6px">${d.full_name}</div>` : ""}
     <div style="font-size:11px;color:#94a3b8;line-height:1.5">${d.definition}</div>
-    <div style="font-size:10px;color:#475569;margin-top:6px">${d.connectionCount} connections · click to explore</div>`;
+    <div style="font-size:10px;color:#475569;margin-top:6px">${d.connectionCount} connections</div>
+    <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);font-size:10px;color:#a78bfa;font-weight:600;letter-spacing:.3px">✦ Click for ELI5 · Related · Full panel</div>`;
 }
 function moveTooltip(e) {
   tip.style.left = Math.min(e.clientX + 16, window.innerWidth - 280) + "px";
@@ -463,6 +450,7 @@ function openPanel(d) {
     return nodes.find(n => n.id === otherId);
   }).filter(Boolean);
 
+  rotating = false;
   panel.style.display = "flex";
   panel.style.borderLeftColor = clr + "30";
   panel.innerHTML = `
@@ -531,7 +519,7 @@ window.__openTerm = (id) => {
   if (term) openPanel(term);
 };
 
-function closePanel() { panel.style.display = "none"; selectedTerm = null; }
+function closePanel() { panel.style.display = "none"; selectedTerm = null; setTimeout(() => { rotating = true; }, 600); }
 
 // ── Go ────────────────────────────────────────────────────────────────────────
 init();

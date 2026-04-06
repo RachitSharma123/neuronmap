@@ -21,7 +21,32 @@ const rawScripts = `
     <Fragment set:html={rawScripts} />
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      html, body { width: 100%; height: 100%; overflow: hidden; background: #04040e; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #e2e8f0; }
+      html { background: #04040e; }
+      body {
+        width: 100%; height: 100%; overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        color: #e2e8f0;
+        position: relative;
+      }
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        background:
+          radial-gradient(ellipse 90% 70% at 10% 40%, rgba(100,30,255,0.42) 0%, transparent 52%),
+          radial-gradient(ellipse 70% 80% at 90% 15%, rgba(20,80,230,0.34) 0%, transparent 50%),
+          radial-gradient(ellipse 80% 55% at 50% 100%, rgba(200,20,110,0.30) 0%, transparent 48%),
+          radial-gradient(ellipse 50% 50% at 80% 70%, rgba(0,160,220,0.22) 0%, transparent 44%),
+          radial-gradient(ellipse 40% 40% at 25% 10%, rgba(140,50,255,0.26) 0%, transparent 40%),
+          #04040e;
+        animation: nebulaHue 30s ease-in-out infinite alternate;
+      }
+      @keyframes nebulaHue {
+        from { filter: hue-rotate(0deg) brightness(1); }
+        to   { filter: hue-rotate(28deg) brightness(1.08); }
+      }
+      #app { position: relative; z-index: 1; width: 100%; height: 100%; }
     </style>
   </head>
   <body>
