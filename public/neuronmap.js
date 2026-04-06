@@ -14,7 +14,7 @@ const COLORS = {
   "APIs & Platforms": "#4ade80",
 };
 const color = (cat) => COLORS[cat] || "#94a3b8";
-const nodeR = (n) => Math.max(4, Math.min(18, 4 + Math.sqrt(n.connectionCount || 0) * 2.5));
+const nodeR = (n) => Math.max(7, Math.min(28, 7 + Math.sqrt(n.connectionCount || 0) * 4));
 
 // ── Read config injected by Astro via window.NM ──────────────────────────────
 const SUPA_URL = window.NM?.url;
@@ -265,8 +265,8 @@ function buildGraph(terms, conns) {
     .force("link", d3.forceLink(links).id(d => d.id).distance(90).strength(0.25))
     .force("charge", d3.forceManyBody().strength(-120))
     .force("center", d3.forceCenter(0, 0).strength(0.08))
-    .force("radial", d3.forceRadial(d => d.connectionCount >= 4 ? 180 : 420, 0, 0).strength(0.12))
-    .force("collision", d3.forceCollide().radius(d => nodeR(d) + 10));
+    .force("radial", d3.forceRadial(d => d.connectionCount >= 4 ? 220 : 520, 0, 0).strength(0.12))
+    .force("collision", d3.forceCollide().radius(d => nodeR(d) + 18));
 
   simulation.on("tick", () => {
     linkG.selectAll("line")
