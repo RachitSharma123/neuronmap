@@ -262,10 +262,11 @@ function buildGraph(terms, conns) {
   // Simulation
   simulation = d3.forceSimulation(nodes)
     .alphaDecay(0.03)
-    .force("link", d3.forceLink(links).id(d => d.id).distance(d => 45 + Math.max(d.source.connectionCount || 0, d.target.connectionCount || 0) * 3).strength(0.7))
-    .force("charge", d3.forceManyBody().strength(-80))
-    .force("center", d3.forceCenter(0, 0).strength(0.6))
-    .force("collision", d3.forceCollide().radius(d => nodeR(d) + 4));
+    .force("link", d3.forceLink(links).id(d => d.id).distance(90).strength(0.25))
+    .force("charge", d3.forceManyBody().strength(-120))
+    .force("center", d3.forceCenter(0, 0).strength(0.08))
+    .force("radial", d3.forceRadial(d => d.connectionCount >= 4 ? 180 : 420, 0, 0).strength(0.12))
+    .force("collision", d3.forceCollide().radius(d => nodeR(d) + 10));
 
   simulation.on("tick", () => {
     linkG.selectAll("line")
