@@ -636,5 +636,86 @@ window.__openTerm = (id) => {
 
 function closePanel() { panel.style.display = "none"; selectedTerm = null; setTimeout(() => { rotating = true; }, 600); }
 
+// ── Asteroid news ─────────────────────────────────────────────────────────────
+(function asteroidSystem() {
+  let newsPool = [];
+  let poolIndex = 0;
+  let activeCount = 0;
+  const MAX_ACTIVE = 3;
+
+  const asteroidCSS = `
+    @keyframes asteroid-fly {
+      0%   { transform: translateX(0) translateY(0) rotate(0deg);   opacity: 0; }
+      5%   { opacity: 1; }
+      95%  { opacity: 1; }
+      100% { transform: translateX(-120vw) translateY(var(--drift)) rotate(-18deg); opacity: 0; }
+    }
+    .asteroid {
+      position: fixed; z-index: 15; pointer-events: auto; cursor: pointer;
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(10,8,30,0.82);
+      border: 1px solid rgba(167,139,250,0.45);
+      border-radius: 42% 58% 55% 45% / 48% 52% 48% 52%;
+      padding: 7px 14px 7px 10px;
+      max-width: 320px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 0 18px rgba(120,60,255,0.25), inset 0 1px 0 rgba(255,255,255,0.06);
+      animation: asteroid-fly var(--dur) linear forwards;
+      right: -340px;
+      user-select: none;
+    }
+    .asteroid:hover { border-color: rgba(167,139,250,0.85); box-shadow: 0 0 28px rgba(120,60,255,0.5); animation-play-state: paused; }
+    .asteroid-icon { font-size: 16px; flex-shrink: 0; animation: spin 8s linear infinite; display: inline-block; }
+    .asteroid-text { font-size: 11px; color: #c4b5fd; font-weight: 500; line-height: 1.4; }
+    .asteroid-pts  { font-size: 10px; color: #a78bfa; opacity: 0.7; white-space: nowrap; flex-shrink: 0; }
+  `;
+  const s = document.createElement("style");
+  s.textContent = asteroidCSS;
+  document.head.appendChild(s);
+
+  async function fetchNews() {
+    try {
+      const res = await fetch("/api/news");
+      const data = await res.json();
+      if (data.stories?.length) {
+        newsPool = data.stories;
+        poolIndex = 0;
+      }
+    } catch {}
+  }
+
+  function spawnAsteroid() {
+    if (!newsPool.length || activeCount >= MAX_ACTIVE) return;
+    const story = newsPool[poolIndex % newsPool.length];
+    poolIndex++;
+    activeCount++;
+
+    const el = document.createElement("div");
+    el.className = "asteroid";
+    const top = 80 + Math.random() * (window.innerHeight - 180);
+    const dur = 14 + Math.random() * 8; // 14–22s
+    const drift = (Math.random() - 0.5) * 60;
+    el.style.cssText += `top:${top}px; --dur:${dur}s; --drift:${drift}px;`;
+    el.title = story.title;
+    el.innerHTML = `
+      <span class="asteroid-icon">🪨</span>
+      <span class="asteroid-text">${story.title.length > 52 ? story.title.slice(0, 52) + "…" : story.title}</span>
+      <span class="asteroid-pts">▲${story.points}</span>`;
+    el.addEventListener("click", () => window.open(story.url, "_blank", "noopener"));
+    el.addEventListener("animationend", () => { el.remove(); activeCount = Math.max(0, activeCount - 1); });
+    document.body.appendChild(el);
+  }
+
+  // Boot: fetch then spawn first one after 5s, then every 60s
+  fetchNews().then(() => {
+    setTimeout(spawnAsteroid, 5000);
+    setInterval(() => {
+      spawnAsteroid();
+      // Refresh pool every 10 spawns
+      if (poolIndex % 10 === 0) fetchNews();
+    }, 60000);
+  });
+})();
+
 // ── Go ────────────────────────────────────────────────────────────────────────
 init();
