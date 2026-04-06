@@ -1,9 +1,17 @@
 import { defineConfig } from "astro/config";
 import react from "@astrojs/react";
-import vercel from "@astrojs/vercel/serverless";
+import vercel from "@astrojs/vercel";
 
 export default defineConfig({
   output: "server",
   adapter: vercel(),
   integrations: [react()],
+  vite: {
+    optimizeDeps: {
+      include: ["d3"],
+    },
+    ssr: {
+      noExternal: ["d3"],
+    },
+  },
 });

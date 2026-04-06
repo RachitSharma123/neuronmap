@@ -89,17 +89,17 @@ export default function MindMap() {
 
     async function fetchAndRender() {
       try {
-        const [{ data: terms, error: e1 }, { data: connections, error: e2 }] = await Promise.all([
+        const [termsRes, connsRes] = await Promise.all([
           supabase.from("terms").select("id, name, full_name, category, definition, created_at").order("created_at"),
           supabase.from("connections").select("from_id, to_id, weight"),
         ]);
 
-        if (e1 || e2) throw new Error((e1 || e2)?.message);
+        if (termsRes.error || connsRes.error) throw new Error((termsRes.error || connsRes.error)?.message);
         if (cancelled) return;
 
-        setTermCount(terms?.length ?? 0);
+        setTermCount(termsRes.data?.length ?? 0);
         setLoading(false);
-        renderGraph(terms ?? [], connections ?? []);
+        renderGraph(termsRes.data ?? [], connsRes.data ?? []);
       } catch (err) {
         if (!cancelled) setLoadError(err instanceof Error ? err.message : "Failed to load");
         setLoading(false);
