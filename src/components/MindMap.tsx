@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import * as d3 from "d3";
+import type * as D3 from "d3";
+
+// D3 loaded via CDN <script> — typed via import type, accessed at runtime from window
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const getD3 = (): typeof D3 => (window as any).d3;
 import { createClient } from "@supabase/supabase-js";
 import type { Term, Connection } from "../lib/supabase";
 import NodePanel from "./NodePanel";
@@ -27,7 +31,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 const getColor = (cat: string) => CATEGORY_COLORS[cat] ?? "#94a3b8";
 
-interface GraphNode extends d3.SimulationNodeDatum {
+interface GraphNode extends D3.SimulationNodeDatum {
   id: string;
   name: string;
   full_name: string;
@@ -38,7 +42,7 @@ interface GraphNode extends d3.SimulationNodeDatum {
   isNew?: boolean;
 }
 
-interface GraphLink extends d3.SimulationLinkDatum<GraphNode> {
+interface GraphLink extends D3.SimulationLinkDatum<GraphNode> {
   source: string | GraphNode;
   target: string | GraphNode;
   weight: number;
@@ -46,10 +50,10 @@ interface GraphLink extends d3.SimulationLinkDatum<GraphNode> {
 
 export default function MindMap() {
   const svgRef = useRef<SVGSVGElement>(null);
-  const simRef = useRef<d3.Simulation<GraphNode, GraphLink> | null>(null);
+  const simRef = useRef<D3.Simulation<GraphNode, GraphLink> | null>(null);
   const nodesRef = useRef<GraphNode[]>([]);
   const linksRef = useRef<GraphLink[]>([]);
-  const gRef = useRef<d3.Selection<SVGGElement, unknown, null, undefined> | null>(null);
+  const gRef = useRef<D3.Selection<SVGGElement, unknown, null, undefined> | null>(null);
 
   const [selectedTerm, setSelectedTerm] = useState<Term | null>(null);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; term: GraphNode } | null>(null);
@@ -116,6 +120,7 @@ export default function MindMap() {
 
   function renderGraph(initialTerms: Term[], initialConnections: Connection[]) {
     if (!svgRef.current) return;
+    const d3 = getD3();
 
     const { nodes, links } = buildGraph(initialTerms, initialConnections);
     nodesRef.current = nodes;
@@ -327,6 +332,7 @@ export default function MindMap() {
   // ─── Add node to live simulation ─────────────────────────────────────────
   const addNewNode = useCallback((term: Term, newConns: Connection[]) => {
     if (!simRef.current || !gRef.current) return;
+    const d3 = getD3();
 
     const simulation = simRef.current;
     const g = gRef.current;
@@ -359,7 +365,7 @@ export default function MindMap() {
 
     // Update simulation
     simulation.nodes(nodesRef.current);
-    (simulation.force("link") as d3.ForceLink<GraphNode, GraphLink>).links(linksRef.current);
+    (simulation.force("link") as D3.ForceLink<GraphNode, GraphLink>).links(linksRef.current);
 
     // Re-render links
     const linkGroup = g.select<SVGGElement>(".links");
@@ -484,8 +490,8 @@ export default function MindMap() {
 
   function highlightNode(
     d: GraphNode,
-    link: d3.Selection<SVGLineElement, GraphLink, SVGGElement, unknown>,
-    node: d3.Selection<SVGGElement, GraphNode, SVGGElement, unknown>
+    link: D3.Selection<SVGLineElement, GraphLink, SVGGElement, unknown>,
+    node: D3.Selection<SVGGElement, GraphNode, SVGGElement, unknown>
   ) {
     const connectedIds = new Set<string>();
     connectedIds.add(d.id);
@@ -514,8 +520,8 @@ export default function MindMap() {
   }
 
   function resetHighlight(
-    link?: d3.Selection<SVGLineElement, GraphLink, SVGGElement, unknown>,
-    node?: d3.Selection<SVGGElement, GraphNode, SVGGElement, unknown>
+    link?: D3.Selection<SVGLineElement, GraphLink, SVGGElement, unknown>,
+    node?: D3.Selection<SVGGElement, GraphNode, SVGGElement, unknown>
   ) {
     if (!gRef.current) return;
     const g = gRef.current;

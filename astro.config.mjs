@@ -6,12 +6,4 @@ export default defineConfig({
   output: "server",
   adapter: vercel(),
   integrations: [react()],
-  vite: {
-    optimizeDeps: {
-      include: ["d3"],
-    },
-    ssr: {
-      noExternal: ["d3"],
-    },
-  },
 });
