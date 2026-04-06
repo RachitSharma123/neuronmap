@@ -1,19 +1,17 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import type * as D3 from "d3";
-
-// D3 loaded via CDN <script> — typed via import type, accessed at runtime from window
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const getD3 = (): typeof D3 => (window as any).d3;
-import { createClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Term, Connection } from "../lib/supabase";
 import NodePanel from "./NodePanel";
 
-function getSupabase() {
-  return createClient(
-    import.meta.env.PUBLIC_SUPABASE_URL as string,
-    import.meta.env.PUBLIC_SUPABASE_ANON_KEY as string
-  );
-}
+// D3 + Supabase loaded via CDN — avoids Vite circular dep bundling issues
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const getD3 = (): typeof D3 => (window as any).d3;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const getSupabase = (): SupabaseClient => (window as any).supabase.createClient(
+  import.meta.env.PUBLIC_SUPABASE_URL as string,
+  import.meta.env.PUBLIC_SUPABASE_ANON_KEY as string
+);
 
 // ─── Category colors (Obsidian-inspired) ────────────────────────────────────
 const CATEGORY_COLORS: Record<string, string> = {

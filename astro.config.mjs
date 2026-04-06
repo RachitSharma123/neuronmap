@@ -6,4 +6,11 @@ export default defineConfig({
   output: "server",
   adapter: vercel(),
   integrations: [react()],
+  vite: {
+    build: {
+      rollupOptions: {
+        external: ["@supabase/supabase-js"],
+      },
+    },
+  },
 });
