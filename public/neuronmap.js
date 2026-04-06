@@ -1,4 +1,4 @@
-// NeuronMap — Pure vanilla JS, no bundler involved
+// AI Graph — Pure vanilla JS, no bundler involved
 // D3 + Supabase loaded via CDN script tags
 
 const COLORS = {
@@ -31,13 +31,13 @@ let rotAngle = 0;
 const app = document.getElementById("app");
 app.innerHTML = `
   <div id="loader" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#04040e;z-index:999">
-    <div id="spinner" style="font-size:32px;animation:spin 2s linear infinite">⬡</div>
-    <div style="color:#a78bfa;font-size:16px;font-weight:600;margin-top:12px">NeuronMap</div>
+    <div id="spinner" style="font-size:32px;animation:spin 2s linear infinite">✦</div>
+    <div style="color:#a78bfa;font-size:16px;font-weight:600;margin-top:12px">AI Graph</div>
     <div style="color:#475569;font-size:12px;margin-top:6px">Loading knowledge graph...</div>
   </div>
   <svg id="graph" style="width:100vw;height:100vh;display:block;position:relative;z-index:1"></svg>
   <div id="topbar" style="position:fixed;top:16px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:12px;background:rgba(4,4,20,0.85);backdrop-filter:blur(16px);border:1px solid rgba(167,139,250,0.15);border-radius:12px;padding:8px 16px;z-index:10;box-shadow:0 4px 32px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,0.03)">
-    <span style="font-size:15px;font-weight:700;color:#e2e8f0;letter-spacing:-.3px">⬡ NeuronMap</span>
+    <span style="font-size:15px;font-weight:700;color:#e2e8f0;letter-spacing:-.3px">✦ AI Graph</span>
     <div style="width:1px;height:18px;background:#1e2030"></div>
     <input id="search" placeholder="Search terms..." style="background:transparent;border:none;outline:none;color:#c8ccd4;font-size:13px;width:180px;caret-color:#a78bfa" />
     <div style="width:1px;height:18px;background:#1e2030"></div>
@@ -57,7 +57,7 @@ app.innerHTML = `
     <div style="background:linear-gradient(135deg,rgba(10,8,28,0.98),rgba(4,4,18,0.98));border:1px solid rgba(167,139,250,0.25);border-radius:16px;padding:28px 32px;max-width:480px;width:90%;box-shadow:0 24px 80px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,0.03),inset 0 1px 0 rgba(255,255,255,0.06)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
         <div>
-          <h2 style="font-size:18px;font-weight:800;color:#f0f2f8">How to use NeuronMap</h2>
+          <h2 style="font-size:18px;font-weight:800;color:#f0f2f8">How to use AI Graph</h2>
           <p style="font-size:12px;color:#475569;margin-top:2px">The AI knowledge graph that teaches you connections</p>
         </div>
         <button id="help-close" style="background:none;border:none;cursor:pointer;color:#475569;font-size:20px;padding:4px;line-height:1">✕</button>
