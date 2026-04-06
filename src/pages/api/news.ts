@@ -10,11 +10,11 @@ export const GET: APIRoute = async () => {
     const data = await res.json();
     
     const stories = (data.hits || [])
-      .filter((h: any) => h.title && h.url && h.points > 1)
+      .filter((h: any) => h.title && (h.url || h.story_url) && h.points > 1)
       .slice(0, 20)
-      .map((h: any) => ({ title: h.title, url: h.url, points: h.points, author: h.author }));
+      .map((h: any) => ({ title: h.title, url: h.url || h.story_url, points: h.points, author: h.author }));
 
-    return new Response(JSON.stringify({ stories, debug: { totalHits: data.nbHits || 0 } }), {
+    return new Response(JSON.stringify({ stories, debug: { totalHits: data.nbHits || 0, hits: data.hits?.slice(0,3) } }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
