@@ -4,9 +4,12 @@ import { createClient } from "@supabase/supabase-js";
 import type { Term, Connection } from "../lib/supabase";
 import NodePanel from "./NodePanel";
 
-const SUPABASE_URL = import.meta.env.PUBLIC_SUPABASE_URL as string;
-const SUPABASE_ANON = import.meta.env.PUBLIC_SUPABASE_ANON_KEY as string;
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
+function getSupabase() {
+  return createClient(
+    import.meta.env.PUBLIC_SUPABASE_URL as string,
+    import.meta.env.PUBLIC_SUPABASE_ANON_KEY as string
+  );
+}
 
 // ─── Category colors (Obsidian-inspired) ────────────────────────────────────
 const CATEGORY_COLORS: Record<string, string> = {
@@ -89,9 +92,10 @@ export default function MindMap() {
 
     async function fetchAndRender() {
       try {
+        const sb = getSupabase();
         const [termsRes, connsRes] = await Promise.all([
-          supabase.from("terms").select("id, name, full_name, category, definition, created_at").order("created_at"),
-          supabase.from("connections").select("from_id, to_id, weight"),
+          sb.from("terms").select("id, name, full_name, category, definition, created_at").order("created_at"),
+          sb.from("connections").select("from_id, to_id, weight"),
         ]);
 
         if (termsRes.error || connsRes.error) throw new Error((termsRes.error || connsRes.error)?.message);
@@ -297,6 +301,7 @@ export default function MindMap() {
 
   // ─── Supabase Realtime subscription ────────────────────────────────────────
   useEffect(() => {
+    const supabase = getSupabase();
 
     const channel = supabase
       .channel("terms-live")
@@ -316,7 +321,7 @@ export default function MindMap() {
       })
       .subscribe();
 
-    return () => { void supabase.removeChannel(channel); };
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   // ─── Add node to live simulation ─────────────────────────────────────────
