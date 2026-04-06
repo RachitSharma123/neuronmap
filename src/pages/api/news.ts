@@ -10,11 +10,14 @@ export const GET: APIRoute = async () => {
     const data = await res.json();
     
     const stories = (data.hits || [])
-      .filter((h: any) => h.title && (h.url || h.story_url) && h.points > 1)
+      .filter((h: any) => h.title && (h.url || h.story_url) && h.points > 1 && !h._tags?.includes("ask_hn"))
       .slice(0, 20)
       .map((h: any) => ({ title: h.title, url: h.url || h.story_url, points: h.points, author: h.author }));
 
-    return new Response(JSON.stringify({ stories, debug: { totalHits: data.nbHits || 0, hits: data.hits?.slice(0,3) } }), {
+    return new Response(JSON.stringify({ stories }), {
+      status: 200,
+      headers: { "Content-Type": "application/json", "Cache-Control": "s-maxage=300" },
+    });
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
