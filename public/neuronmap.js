@@ -496,7 +496,7 @@ function showTab(tab, d, related, clr) {
     fetch("/api/eli5", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ termName: d.name, definition: d.definition }) })
       .then(r => r.json()).then(data => {
         content.innerHTML = `
-          <div style="font-size:11px;font-weight:600;color:#475569;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">✦ Claude explains</div>
+          <div style="font-size:11px;font-weight:600;color:#475569;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">✦ DeepSeek explains</div>
           <p style="font-size:15px;color:#d4d8e8;line-height:1.8;font-style:italic">"${data.explanation || "Could not generate."}"</p>`;
       }).catch(() => { content.innerHTML = `<div style="color:#f87171;font-size:13px">Failed to fetch. Try again.</div>`; });
   } else if (tab === "rel") {

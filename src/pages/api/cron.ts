@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { getSupabaseAdmin } from "../../lib/supabase";
-import { fetchNewTerm } from "../../lib/claude";
+import { fetchNewTerm } from "../../lib/deepseek";
 
 export const GET: APIRoute = async ({ request }) => {
   // Verify cron secret to prevent unauthorized calls
@@ -28,7 +28,7 @@ export const GET: APIRoute = async ({ request }) => {
     ));
 
     if (!newTerm) {
-      return new Response(JSON.stringify({ ok: false, reason: "Claude returned no term" }), {
+      return new Response(JSON.stringify({ ok: false, reason: "DeepSeek returned no term" }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });

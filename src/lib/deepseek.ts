@@ -1,6 +1,9 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const client = new OpenAI({
+  apiKey: process.env.DEEPSEEK_API_KEY,
+  baseURL: "https://api.deepseek.com",
+});
 
 export type NewTerm = {
   name: string;
@@ -41,13 +44,13 @@ Return ONLY valid JSON with no explanation, no markdown, no extra text:
 }`;
 
   try {
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
+    const response = await client.chat.completions.create({
+      model: "deepseek-chat",
       max_tokens: 400,
       messages: [{ role: "user", content: prompt }],
     });
 
-    const text = response.content[0].type === "text" ? response.content[0].text : "";
+    const text = response.choices[0]?.message?.content ?? "";
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return null;
 
@@ -63,11 +66,11 @@ Return ONLY valid JSON with no explanation, no markdown, no extra text:
 export async function fetchELI5(termName: string, definition: string): Promise<string> {
   const prompt = `Explain "${termName}" (${definition}) to a curious 8-year-old child using a simple real-world analogy. Max 3 sentences. No jargon.`;
 
-  const response = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
+  const response = await client.chat.completions.create({
+    model: "deepseek-chat",
     max_tokens: 200,
     messages: [{ role: "user", content: prompt }],
   });
 
-  return response.content[0].type === "text" ? response.content[0].text : "Could not generate explanation.";
+  return response.choices[0]?.message?.content ?? "Could not generate explanation.";
 }

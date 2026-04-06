@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { fetchELI5 } from "../../lib/claude";
+import { fetchELI5 } from "../../lib/deepseek";
 
 export const POST: APIRoute = async ({ request }) => {
   try {
