@@ -495,11 +495,11 @@ function showTab(tab, d, related, clr) {
   if (tab === "def") {
     content.innerHTML = `<p style="font-size:14px;color:#b0b8cc;line-height:1.7">${d.definition}</p>`;
   } else if (tab === "eli5") {
-    content.innerHTML = `<div style="display:flex;align-items:center;gap:10px;color:#475569;font-size:13px"><div style="animation:spin 1s linear infinite">◌</div>Asking Claude...</div>`;
+    content.innerHTML = `<div style="display:flex;align-items:center;gap:10px;color:#a78bfa;font-size:14px;font-weight:600"><div style="animation:spin 1s linear infinite">◌</div>Thinking...</div>`;
     fetch("/api/eli5", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ termName: d.name, definition: d.definition }) })
       .then(r => r.json()).then(data => {
         content.innerHTML = `
-          <div style="font-size:11px;font-weight:600;color:#475569;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">✦ DeepSeek explains</div>
+          <div style="font-size:15px;font-weight:800;color:#a78bfa;margin-bottom:12px;letter-spacing:-.2px">✦ Here you go!</div>
           <p style="font-size:15px;color:#d4d8e8;line-height:1.8;font-style:italic">"${data.explanation || "Could not generate."}"</p>`;
       }).catch(() => { content.innerHTML = `<div style="color:#f87171;font-size:13px">Failed to fetch. Try again.</div>`; });
   } else if (tab === "rel") {
