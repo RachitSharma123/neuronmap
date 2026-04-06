@@ -1,0 +1,408 @@
+// NeuronMap — Pure vanilla JS, no bundler involved
+// D3 + Supabase loaded via CDN script tags
+
+const COLORS = {
+  "Core ML": "#a78bfa",
+  "LLM": "#2dd4bf",
+  "Infra": "#60a5fa",
+  "Tools": "#fbbf24",
+  "Ethics": "#f87171",
+  "Applications": "#34d399",
+  "Emerging": "#f472b6",
+  "Data": "#94a3b8",
+  "Dev Tools": "#38bdf8",
+  "APIs & Platforms": "#4ade80",
+};
+const color = (cat) => COLORS[cat] || "#94a3b8";
+const nodeR = (n) => Math.max(4, Math.min(18, 4 + Math.sqrt(n.connectionCount || 0) * 2.5));
+
+// ── Read config injected by Astro ────────────────────────────────────────────
+const scriptEl = document.currentScript;
+const SUPA_URL = scriptEl?.dataset.supabaseUrl;
+const SUPA_KEY = scriptEl?.dataset.supabaseKey;
+
+// ── State ────────────────────────────────────────────────────────────────────
+let nodes = [], links = [], simulation, gSel, svgSel;
+let selectedTerm = null;
+
+// ── DOM setup ─────────────────────────────────────────────────────────────────
+const app = document.getElementById("app");
+app.innerHTML = `
+  <div id="loader" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0a0a0f;z-index:999">
+    <div id="spinner" style="font-size:32px;animation:spin 2s linear infinite">⬡</div>
+    <div style="color:#a78bfa;font-size:16px;font-weight:600;margin-top:12px">NeuronMap</div>
+    <div style="color:#475569;font-size:12px;margin-top:6px">Loading knowledge graph...</div>
+  </div>
+  <svg id="graph" style="width:100vw;height:100vh;display:block"></svg>
+  <div id="topbar" style="position:fixed;top:16px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:12px;background:rgba(10,10,20,0.9);backdrop-filter:blur(12px);border:1px solid #1e2030;border-radius:12px;padding:8px 16px;z-index:10;box-shadow:0 4px 32px rgba(0,0,0,.5)">
+    <span style="font-size:15px;font-weight:700;color:#e2e8f0;letter-spacing:-.3px">⬡ NeuronMap</span>
+    <div style="width:1px;height:18px;background:#1e2030"></div>
+    <input id="search" placeholder="Search terms..." style="background:transparent;border:none;outline:none;color:#c8ccd4;font-size:13px;width:180px;caret-color:#a78bfa" />
+    <div style="width:1px;height:18px;background:#1e2030"></div>
+    <span id="count" style="font-size:12px;color:#64748b">— terms</span>
+  </div>
+  <div id="legend" style="position:fixed;bottom:24px;left:24px;display:flex;flex-direction:column;gap:4px;z-index:10"></div>
+  <div id="tooltip" style="display:none;position:fixed;pointer-events:none;z-index:100;max-width:260px;border-radius:8px;padding:10px 14px;background:rgba(13,14,25,.97);box-shadow:0 8px 32px rgba(0,0,0,.6)"></div>
+  <div id="panel" style="display:none;position:fixed;right:0;top:0;bottom:0;width:360px;background:rgba(10,10,18,.97);border-left:1px solid #1e2030;flex-direction:column;z-index:50;backdrop-filter:blur(20px);box-shadow:-8px 0 48px rgba(0,0,0,.6)"></div>
+  <div id="flash" style="display:none;position:fixed;top:70px;left:50%;transform:translateX(-50%);background:rgba(167,139,250,.12);border:1px solid #a78bfa44;border-radius:8px;padding:8px 16px;z-index:20;color:#a78bfa;font-size:12px;font-weight:500"></div>
+`;
+
+const style = document.createElement("style");
+style.textContent = `@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}} svg{cursor:grab} svg:active{cursor:grabbing} input::placeholder{color:#475569}`;
+document.head.appendChild(style);
+
+// ── Legend ───────────────────────────────────────────────────────────────────
+const legend = document.getElementById("legend");
+Object.entries(COLORS).forEach(([cat, clr]) => {
+  const btn = document.createElement("button");
+  btn.style.cssText = "display:flex;align-items:center;gap:7px;background:none;border:none;cursor:pointer;padding:2px 0";
+  btn.innerHTML = `<span style="width:8px;height:8px;border-radius:50%;background:${clr};flex-shrink:0"></span><span style="font-size:11px;color:#94a3b8">${cat}</span>`;
+  btn.dataset.cat = cat;
+  btn.addEventListener("click", () => toggleCategory(cat));
+  legend.appendChild(btn);
+});
+
+let activeCategory = null;
+function toggleCategory(cat) {
+  activeCategory = activeCategory === cat ? null : cat;
+  legend.querySelectorAll("button").forEach(b => {
+    b.style.opacity = activeCategory && b.dataset.cat !== activeCategory ? "0.3" : "1";
+  });
+  applyFilter();
+}
+
+// ── Search ───────────────────────────────────────────────────────────────────
+document.getElementById("search").addEventListener("input", applyFilter);
+
+function applyFilter() {
+  const q = document.getElementById("search").value.toLowerCase();
+  if (!gSel) return;
+  gSel.selectAll(".node-g").attr("opacity", d => {
+    const ms = !q || d.name.toLowerCase().includes(q) || d.full_name.toLowerCase().includes(q);
+    const mc = !activeCategory || d.category === activeCategory;
+    return ms && mc ? 1 : 0.05;
+  });
+}
+
+// ── Main init ─────────────────────────────────────────────────────────────────
+async function init() {
+  // Wait for D3 + Supabase to be available (they're CDN scripts, should be instant)
+  let attempts = 0;
+  while ((!window.d3 || !window.supabase) && attempts < 50) {
+    await new Promise(r => setTimeout(r, 100));
+    attempts++;
+  }
+  if (!window.d3 || !window.supabase) {
+    showError("CDN failed to load. Check your connection.");
+    return;
+  }
+
+  const db = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+
+  try {
+    const [tRes, cRes] = await Promise.all([
+      db.from("terms").select("id,name,full_name,category,definition,created_at").order("created_at"),
+      db.from("connections").select("from_id,to_id,weight"),
+    ]);
+    if (tRes.error) throw tRes.error;
+    if (cRes.error) throw cRes.error;
+
+    buildGraph(tRes.data, cRes.data);
+    document.getElementById("loader").style.display = "none";
+    document.getElementById("count").textContent = `${tRes.data.length} terms`;
+
+    // Realtime
+    db.channel("terms-live")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "terms" }, async payload => {
+        const t = payload.new;
+        const { data: nc } = await db.from("connections").select("from_id,to_id,weight")
+          .or(`from_id.eq.${t.id},to_id.eq.${t.id}`);
+        addNode(t, nc || []);
+        document.getElementById("count").textContent = `${nodes.length} terms`;
+        showFlash(`✦ New: ${t.name}`);
+      })
+      .subscribe();
+
+  } catch (err) {
+    showError(err.message || "Failed to load");
+  }
+}
+
+function showError(msg) {
+  document.getElementById("loader").innerHTML = `<div style="color:#f87171;font-size:14px">Failed to load: ${msg}</div>`;
+}
+
+// ── Build graph ───────────────────────────────────────────────────────────────
+function buildGraph(terms, conns) {
+  const d3 = window.d3;
+  const W = window.innerWidth, H = window.innerHeight;
+
+  // Count connections per node
+  const cnt = {};
+  conns.forEach(c => { cnt[c.from_id] = (cnt[c.from_id] || 0) + 1; cnt[c.to_id] = (cnt[c.to_id] || 0) + 1; });
+
+  nodes = terms.map(t => ({ ...t, connectionCount: cnt[t.id] || 0 }));
+  const idSet = new Set(nodes.map(n => n.id));
+  links = conns.filter(c => idSet.has(c.from_id) && idSet.has(c.to_id))
+    .map(c => ({ source: c.from_id, target: c.to_id, weight: c.weight }));
+
+  const svg = d3.select("#graph").attr("width", W).attr("height", H);
+  svgSel = svg;
+
+  // Defs: glow filters
+  const defs = svg.append("defs");
+  const glow = defs.append("filter").attr("id", "glow");
+  glow.append("feGaussianBlur").attr("stdDeviation", "3").attr("result", "cb");
+  const fm = glow.append("feMerge"); fm.append("feMergeNode").attr("in", "cb"); fm.append("feMergeNode").attr("in", "SourceGraphic");
+
+  const glowNew = defs.append("filter").attr("id", "glow-new");
+  glowNew.append("feGaussianBlur").attr("stdDeviation", "8").attr("result", "cb2");
+  const fm2 = glowNew.append("feMerge"); fm2.append("feMergeNode").attr("in", "cb2"); fm2.append("feMergeNode").attr("in", "SourceGraphic");
+
+  // Zoom
+  const zoom = d3.zoom().scaleExtent([0.05, 4]).on("zoom", e => g.attr("transform", e.transform));
+  svg.call(zoom).call(zoom.transform, d3.zoomIdentity.translate(W / 2, H / 2).scale(0.6));
+  svg.on("click", () => { resetHL(); closePanel(); });
+
+  const g = svg.append("g");
+  gSel = g;
+
+  // Links
+  const linkG = g.append("g");
+  let linkSel = linkG.selectAll("line").data(links).join("line")
+    .attr("stroke", "#1e2030").attr("stroke-opacity", 0.6).attr("stroke-width", d => 0.5 + (d.weight || 1) * 0.3);
+
+  // Nodes
+  const nodeG = g.append("g");
+  let nodeSel = renderNodes(nodeG, nodes, linkSel, nodeSel);
+
+  // Simulation
+  simulation = d3.forceSimulation(nodes)
+    .force("link", d3.forceLink(links).id(d => d.id).distance(d => 80 + Math.max(d.source.connectionCount || 0, d.target.connectionCount || 0) * 8).strength(0.3))
+    .force("charge", d3.forceManyBody().strength(-180))
+    .force("center", d3.forceCenter(0, 0))
+    .force("collision", d3.forceCollide().radius(d => nodeR(d) + 8));
+
+  simulation.on("tick", () => {
+    linkG.selectAll("line")
+      .attr("x1", d => d.source.x || 0).attr("y1", d => d.source.y || 0)
+      .attr("x2", d => d.target.x || 0).attr("y2", d => d.target.y || 0);
+    g.selectAll(".node-g").attr("transform", d => `translate(${d.x || 0},${d.y || 0})`);
+  });
+
+  window.addEventListener("resize", () => {
+    svg.attr("width", window.innerWidth).attr("height", window.innerHeight);
+  });
+}
+
+function renderNodes(parent, data, linkSel) {
+  const d3 = window.d3;
+  const ng = parent.selectAll(".node-g").data(data, d => d.id).join("g")
+    .attr("class", "node-g").attr("cursor", "pointer")
+    .call(d3.drag()
+      .on("start", (e, d) => { if (!e.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+      .on("drag",  (e, d) => { d.fx = e.x; d.fy = e.y; })
+      .on("end",   (e, d) => { if (!e.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }));
+
+  ng.append("circle").attr("r", d => nodeR(d) + 4).attr("fill", "none")
+    .attr("stroke", d => color(d.category)).attr("stroke-opacity", 0.15).attr("stroke-width", 6);
+
+  ng.append("circle").attr("class", "dot").attr("r", d => nodeR(d))
+    .attr("fill", d => color(d.category)).attr("fill-opacity", 0.9).attr("filter", "url(#glow)");
+
+  ng.filter(d => d.connectionCount >= 3).append("text")
+    .attr("dy", d => nodeR(d) + 12).attr("text-anchor", "middle")
+    .attr("fill", "#c8ccd4").attr("pointer-events", "none")
+    .attr("font-size", d => Math.max(9, Math.min(13, 8 + d.connectionCount * 0.4)))
+    .text(d => d.name);
+
+  ng.on("mouseenter", function(e, d) {
+    e.stopPropagation();
+    showTooltip(e, d);
+    highlightNode(d);
+  })
+  .on("mousemove", e => moveTooltip(e))
+  .on("mouseleave", () => { hideTooltip(); resetHL(); })
+  .on("click", (e, d) => { e.stopPropagation(); openPanel(d); hideTooltip(); });
+
+  return ng;
+}
+
+// ── Add new node (realtime) ───────────────────────────────────────────────────
+function addNode(term, newConns) {
+  const d3 = window.d3;
+  if (!gSel || !simulation) return;
+
+  term.connectionCount = newConns.length;
+  term.x = (Math.random() - 0.5) * 2000;
+  term.y = (Math.random() - 0.5) * 2000;
+  nodes.push(term);
+
+  const idSet = new Set(nodes.map(n => n.id));
+  const newLinks = newConns.filter(c => idSet.has(c.from_id) && idSet.has(c.to_id))
+    .map(c => ({ source: c.from_id, target: c.to_id, weight: c.weight }));
+  links.push(...newLinks);
+
+  simulation.nodes(nodes);
+  simulation.force("link").links(links);
+
+  gSel.select("g").selectAll("line").data(links).join("line")
+    .attr("stroke", "#1e2030").attr("stroke-opacity", 0.6).attr("stroke-width", d => 0.5 + (d.weight || 1) * 0.3);
+
+  const ng = gSel.selectAll(".node-g").data(nodes, d => d.id);
+  const entered = ng.enter().append("g").attr("class", "node-g").attr("cursor", "pointer")
+    .call(d3.drag()
+      .on("start", (e, d) => { if (!e.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+      .on("drag",  (e, d) => { d.fx = e.x; d.fy = e.y; })
+      .on("end",   (e, d) => { if (!e.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }));
+
+  entered.append("circle").attr("r", d => nodeR(d) + 4).attr("fill", "none")
+    .attr("stroke", d => color(d.category)).attr("stroke-opacity", 0.15).attr("stroke-width", 6);
+  entered.append("circle").attr("class", "dot").attr("r", d => nodeR(d))
+    .attr("fill", d => color(d.category)).attr("fill-opacity", 0.9).attr("filter", "url(#glow-new)")
+    .transition().duration(3000).attr("filter", "url(#glow)");
+  entered.filter(d => d.connectionCount >= 3).append("text")
+    .attr("dy", d => nodeR(d) + 12).attr("text-anchor", "middle")
+    .attr("fill", "#c8ccd4").attr("pointer-events", "none").attr("font-size", 10).text(d => d.name);
+  entered.on("mouseenter", function(e, d) { e.stopPropagation(); showTooltip(e, d); highlightNode(d); })
+    .on("mousemove", e => moveTooltip(e)).on("mouseleave", () => { hideTooltip(); resetHL(); })
+    .on("click", (e, d) => { e.stopPropagation(); openPanel(d); hideTooltip(); });
+
+  simulation.alpha(0.5).restart();
+}
+
+// ── Tooltip ───────────────────────────────────────────────────────────────────
+const tip = document.getElementById("tooltip");
+function showTooltip(e, d) {
+  const clr = color(d.category);
+  tip.style.cssText += `;display:block;left:${Math.min(e.clientX+16, window.innerWidth-280)}px;top:${Math.min(e.clientY-10, window.innerHeight-120)}px;border:1px solid ${clr}44;border-left:3px solid ${clr};box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 20px ${clr}18`;
+  tip.innerHTML = `
+    <div style="margin-bottom:6px"><span style="font-size:10px;font-weight:600;color:${clr};background:${clr}18;border-radius:4px;padding:2px 6px;text-transform:uppercase;letter-spacing:.5px">${d.category}</span></div>
+    <div style="font-size:13px;font-weight:700;color:#e2e8f0;margin-bottom:4px">${d.name}</div>
+    ${d.full_name !== d.name ? `<div style="font-size:10px;color:#64748b;margin-bottom:6px">${d.full_name}</div>` : ""}
+    <div style="font-size:11px;color:#94a3b8;line-height:1.5">${d.definition}</div>
+    <div style="font-size:10px;color:#475569;margin-top:6px">${d.connectionCount} connections · click to explore</div>`;
+}
+function moveTooltip(e) {
+  tip.style.left = Math.min(e.clientX + 16, window.innerWidth - 280) + "px";
+  tip.style.top  = Math.min(e.clientY - 10, window.innerHeight - 120) + "px";
+}
+function hideTooltip() { tip.style.display = "none"; }
+
+// ── Highlight ─────────────────────────────────────────────────────────────────
+function highlightNode(d) {
+  if (!gSel) return;
+  const connected = new Set([d.id]);
+  gSel.selectAll("line").each(function(l) {
+    const s = l.source.id || l.source, t = l.target.id || l.target;
+    if (s === d.id || t === d.id) { connected.add(s); connected.add(t); }
+  });
+  gSel.selectAll(".node-g").attr("opacity", n => connected.has(n.id) ? 1 : 0.05);
+  gSel.selectAll("line")
+    .attr("stroke", l => {
+      const s = l.source.id || l.source, t = l.target.id || l.target;
+      return (s === d.id || t === d.id) ? color(d.category) : "#1e2030";
+    })
+    .attr("stroke-opacity", l => {
+      const s = l.source.id || l.source, t = l.target.id || l.target;
+      return (s === d.id || t === d.id) ? 0.9 : 0.15;
+    });
+}
+function resetHL() {
+  if (!gSel) return;
+  gSel.selectAll(".node-g").attr("opacity", 1);
+  gSel.selectAll("line").attr("stroke", "#1e2030").attr("stroke-opacity", 0.6);
+}
+
+// ── Flash ─────────────────────────────────────────────────────────────────────
+function showFlash(msg) {
+  const f = document.getElementById("flash");
+  f.textContent = msg; f.style.display = "block";
+  setTimeout(() => { f.style.display = "none"; }, 4000);
+}
+
+// ── Side Panel ────────────────────────────────────────────────────────────────
+const panel = document.getElementById("panel");
+function openPanel(d) {
+  selectedTerm = d;
+  const clr = color(d.category);
+  const related = links.filter(l => {
+    const s = l.source.id || l.source, t = l.target.id || l.target;
+    return s === d.id || t === d.id;
+  }).map(l => {
+    const otherId = (l.source.id || l.source) === d.id ? (l.target.id || l.target) : (l.source.id || l.source);
+    return nodes.find(n => n.id === otherId);
+  }).filter(Boolean);
+
+  panel.style.display = "flex";
+  panel.style.borderLeftColor = clr + "30";
+  panel.innerHTML = `
+    <div style="padding:20px 20px 16px;border-bottom:1px solid ${clr}20;background:linear-gradient(135deg,${clr}08 0%,transparent 100%)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <span style="font-size:10px;font-weight:600;color:${clr};background:${clr}18;border-radius:4px;padding:2px 7px;text-transform:uppercase;letter-spacing:.5px">${d.category}</span>
+          <h2 style="font-size:20px;font-weight:800;color:#f0f2f8;margin-top:8px;line-height:1.2">${d.name}</h2>
+          ${d.full_name !== d.name ? `<div style="font-size:12px;color:#64748b;margin-top:2px">${d.full_name}</div>` : ""}
+        </div>
+        <button id="close-panel" style="background:none;border:none;cursor:pointer;color:#475569;font-size:18px;padding:4px;line-height:1;margin-left:12px;margin-top:-4px">✕</button>
+      </div>
+      <div style="display:flex;gap:12px;margin-top:12px">
+        <span style="font-size:11px;color:#475569"><span style="color:${clr};font-weight:700">${related.length}</span> connections</span>
+        <span style="font-size:11px;color:#475569">Added ${new Date(d.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</span>
+      </div>
+    </div>
+    <div style="display:flex;border-bottom:1px solid #1e2030;padding:0 20px" id="tabs">
+      <button class="tab active-tab" data-tab="def" style="background:none;border:none;cursor:pointer;padding:12px 4px;margin-right:20px;font-size:12px;font-weight:500;color:${clr};border-bottom:2px solid ${clr}">Definition</button>
+      <button class="tab" data-tab="eli5" style="background:none;border:none;cursor:pointer;padding:12px 4px;margin-right:20px;font-size:12px;font-weight:500;color:#475569;border-bottom:2px solid transparent">Explain like I'm 5</button>
+      <button class="tab" data-tab="rel" style="background:none;border:none;cursor:pointer;padding:12px 4px;font-size:12px;font-weight:500;color:#475569;border-bottom:2px solid transparent">Related</button>
+    </div>
+    <div id="tab-content" style="flex:1;overflow-y:auto;padding:20px"></div>`;
+
+  showTab("def", d, related, clr);
+
+  document.getElementById("close-panel").onclick = closePanel;
+  document.querySelectorAll(".tab").forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll(".tab").forEach(b => { b.style.color = "#475569"; b.style.borderBottomColor = "transparent"; });
+      btn.style.color = clr; btn.style.borderBottomColor = clr;
+      showTab(btn.dataset.tab, d, related, clr);
+    };
+  });
+}
+
+function showTab(tab, d, related, clr) {
+  const content = document.getElementById("tab-content");
+  if (tab === "def") {
+    content.innerHTML = `<p style="font-size:14px;color:#b0b8cc;line-height:1.7">${d.definition}</p>`;
+  } else if (tab === "eli5") {
+    content.innerHTML = `<div style="display:flex;align-items:center;gap:10px;color:#475569;font-size:13px"><div style="animation:spin 1s linear infinite">◌</div>Asking Claude...</div>`;
+    fetch("/api/eli5", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ termName: d.name, definition: d.definition }) })
+      .then(r => r.json()).then(data => {
+        content.innerHTML = `
+          <div style="font-size:11px;font-weight:600;color:#475569;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">✦ Claude explains</div>
+          <p style="font-size:15px;color:#d4d8e8;line-height:1.8;font-style:italic">"${data.explanation || "Could not generate."}"</p>`;
+      }).catch(() => { content.innerHTML = `<div style="color:#f87171;font-size:13px">Failed to fetch. Try again.</div>`; });
+  } else if (tab === "rel") {
+    if (!related.length) { content.innerHTML = `<p style="font-size:13px;color:#475569">No connections yet.</p>`; return; }
+    content.innerHTML = related.map(r => {
+      const rc = color(r.category);
+      return `<button onclick="window.__openTerm('${r.id}')" style="display:block;width:100%;background:${rc}08;border:1px solid ${rc}20;border-radius:8px;padding:10px 14px;cursor:pointer;text-align:left;margin-bottom:8px">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:13px;font-weight:600;color:#d4d8e8">${r.name}</span>
+          <span style="font-size:9px;color:${rc};background:${rc}18;padding:1px 5px;border-radius:3px;text-transform:uppercase;letter-spacing:.4px">${r.category}</span>
+        </div>
+        <div style="font-size:11px;color:#64748b;margin-top:3px">${r.full_name}</div>
+      </button>`;
+    }).join("");
+  }
+}
+
+window.__openTerm = (id) => {
+  const term = nodes.find(n => n.id === id);
+  if (term) openPanel(term);
+};
+
+function closePanel() { panel.style.display = "none"; selectedTerm = null; }
+
+// ── Go ────────────────────────────────────────────────────────────────────────
+init();
