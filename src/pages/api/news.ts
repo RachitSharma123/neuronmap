@@ -18,10 +18,7 @@ export const GET: APIRoute = async () => {
       status: 200,
       headers: { "Content-Type": "application/json", "Cache-Control": "s-maxage=300" },
     });
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
   } catch (err) {
-    return new Response(JSON.stringify({ stories: [], error: String(err), stack: err instanceof Error ? err.stack : null }), { status: 200 });
+    return new Response(JSON.stringify({ stories: [], error: String(err) }), { status: 200 });
   }
 };
