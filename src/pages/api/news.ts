@@ -9,7 +9,7 @@ export const GET: APIRoute = async () => {
     const data = await res.json();
 
     const stories = (data.hits || [])
-      .filter((h: any) => h.title && h.url && h.points > 10)
+      .filter((h: any) => h.title && h.url && h.points > 1)
       .slice(0, 20)
       .map((h: any) => ({ title: h.title, url: h.url, points: h.points, author: h.author }));
 
