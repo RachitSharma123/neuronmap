@@ -23,6 +23,9 @@ const SUPA_KEY = window.NM?.key;
 // ── State ────────────────────────────────────────────────────────────────────
 let nodes = [], links = [], simulation, gSel, svgSel;
 let selectedTerm = null;
+let zoomBehavior = null;
+let rotating = true;
+let rotAngle = 0;
 
 // ── DOM setup ─────────────────────────────────────────────────────────────────
 const app = document.getElementById("app");
@@ -39,6 +42,10 @@ app.innerHTML = `
     <input id="search" placeholder="Search terms..." style="background:transparent;border:none;outline:none;color:#c8ccd4;font-size:13px;width:180px;caret-color:#a78bfa" />
     <div style="width:1px;height:18px;background:#1e2030"></div>
     <span id="count" style="font-size:12px;color:#64748b">— terms</span>
+    <div style="width:1px;height:18px;background:#1e2030"></div>
+    <button id="zoom-out" title="Zoom out" style="background:none;border:1px solid #1e2030;border-radius:6px;color:#94a3b8;font-size:16px;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;transition:all .15s">−</button>
+    <button id="zoom-in"  title="Zoom in"  style="background:none;border:1px solid #1e2030;border-radius:6px;color:#94a3b8;font-size:16px;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;transition:all .15s">+</button>
+    <button id="rotate-toggle" title="Toggle rotation" style="background:none;border:1px solid #a78bfa44;border-radius:6px;color:#a78bfa;font-size:13px;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;transition:all .15s">⟳</button>
   </div>
   <div id="legend" style="position:fixed;bottom:24px;left:24px;display:flex;flex-direction:column;gap:4px;z-index:10"></div>
   <div id="tooltip" style="display:none;position:fixed;pointer-events:none;z-index:100;max-width:260px;border-radius:8px;padding:10px 14px;background:rgba(13,14,25,.97);box-shadow:0 8px 32px rgba(0,0,0,.6)"></div>
@@ -47,7 +54,7 @@ app.innerHTML = `
 `;
 
 const style = document.createElement("style");
-style.textContent = `@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}} svg{cursor:grab} svg:active{cursor:grabbing} input::placeholder{color:#475569}`;
+style.textContent = `@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}} svg{cursor:grab} svg:active{cursor:grabbing} input::placeholder{color:#475569} #zoom-in:hover,#zoom-out:hover{border-color:#a78bfa88;color:#e2e8f0} #rotate-toggle:hover{border-color:#a78bfa;background:#a78bfa18}`;
 document.head.appendChild(style);
 
 // ── Legend ───────────────────────────────────────────────────────────────────
@@ -148,6 +155,8 @@ function buildGraph(terms, conns) {
 
   // Defs: glow filters
   const defs = svg.append("defs");
+
+  // Node glow
   const glow = defs.append("filter").attr("id", "glow");
   glow.append("feGaussianBlur").attr("stdDeviation", "3").attr("result", "cb");
   const fm = glow.append("feMerge"); fm.append("feMergeNode").attr("in", "cb"); fm.append("feMergeNode").attr("in", "SourceGraphic");
@@ -156,21 +165,46 @@ function buildGraph(terms, conns) {
   glowNew.append("feGaussianBlur").attr("stdDeviation", "8").attr("result", "cb2");
   const fm2 = glowNew.append("feMerge"); fm2.append("feMergeNode").attr("in", "cb2"); fm2.append("feMergeNode").attr("in", "SourceGraphic");
 
+  // Link glow — white haze around connection lines
+  const linkGlow = defs.append("filter").attr("id", "link-glow")
+    .attr("x", "-100%").attr("y", "-100%").attr("width", "300%").attr("height", "300%");
+  linkGlow.append("feGaussianBlur").attr("in", "SourceGraphic").attr("stdDeviation", "2.5").attr("result", "blur");
+  const fm3 = linkGlow.append("feMerge");
+  fm3.append("feMergeNode").attr("in", "blur");
+  fm3.append("feMergeNode").attr("in", "SourceGraphic");
+
+  // ── IMPORTANT: declare g and rotG BEFORE zoom setup (TDZ safety) ──────────
   const g = svg.append("g");
-  gSel = g;
+  const rotG = g.append("g");   // rotation lives here; zoom/pan lives on g
+  gSel = rotG;
 
   // Zoom
-  const zoom = d3.zoom().scaleExtent([0.05, 4]).on("zoom", e => g.attr("transform", e.transform));
-  svg.call(zoom).call(zoom.transform, d3.zoomIdentity.translate(W / 2, H / 2).scale(0.6));
+  zoomBehavior = d3.zoom().scaleExtent([0.05, 4]).on("zoom", e => g.attr("transform", e.transform));
+  svg.call(zoomBehavior).call(zoomBehavior.transform, d3.zoomIdentity.translate(W / 2, H / 2).scale(0.6));
   svg.on("click", () => { resetHL(); closePanel(); });
 
-  // Links
-  const linkG = g.append("g");
+  // Wire zoom buttons
+  document.getElementById("zoom-in").onclick = () =>
+    svgSel.transition().duration(300).call(zoomBehavior.scaleBy, 1.4);
+  document.getElementById("zoom-out").onclick = () =>
+    svgSel.transition().duration(300).call(zoomBehavior.scaleBy, 0.71);
+  document.getElementById("rotate-toggle").onclick = () => {
+    rotating = !rotating;
+    const btn = document.getElementById("rotate-toggle");
+    btn.style.color = rotating ? "#a78bfa" : "#475569";
+    btn.style.borderColor = rotating ? "#a78bfa44" : "#1e2030";
+  };
+
+  // Links — white glow
+  const linkG = rotG.append("g");
   linkG.selectAll("line").data(links).join("line")
-    .attr("stroke", "#1e2030").attr("stroke-opacity", 0.6).attr("stroke-width", d => 0.5 + (d.weight || 1) * 0.3);
+    .attr("stroke", "rgba(255,255,255,0.18)")
+    .attr("stroke-opacity", 1)
+    .attr("stroke-width", d => 0.5 + (d.weight || 1) * 0.3)
+    .attr("filter", "url(#link-glow)");
 
   // Nodes
-  const nodeG = g.append("g");
+  const nodeG = rotG.append("g");
   renderNodes(nodeG, nodes);
 
   // Simulation
@@ -184,12 +218,21 @@ function buildGraph(terms, conns) {
     linkG.selectAll("line")
       .attr("x1", d => d.source.x || 0).attr("y1", d => d.source.y || 0)
       .attr("x2", d => d.target.x || 0).attr("y2", d => d.target.y || 0);
-    g.selectAll(".node-g").attr("transform", d => `translate(${d.x || 0},${d.y || 0})`);
+    rotG.selectAll(".node-g").attr("transform", d => `translate(${d.x || 0},${d.y || 0})`);
   });
 
   window.addEventListener("resize", () => {
     svg.attr("width", window.innerWidth).attr("height", window.innerHeight);
   });
+
+  // ── Earth rotation RAF ────────────────────────────────────────────────────
+  (function rotFrame() {
+    if (rotating) {
+      rotAngle = (rotAngle + 0.04) % 360;   // ~2.4°/s at 60fps — smooth, medium
+      rotG.attr("transform", `rotate(${rotAngle})`);
+    }
+    requestAnimationFrame(rotFrame);
+  })();
 }
 
 function renderNodes(parent, data) {
@@ -197,9 +240,18 @@ function renderNodes(parent, data) {
   const ng = parent.selectAll(".node-g").data(data, d => d.id).join("g")
     .attr("class", "node-g").attr("cursor", "pointer")
     .call(d3.drag()
-      .on("start", (e, d) => { if (!e.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+      .on("start", (e, d) => {
+        rotating = false;  // pause rotation while dragging
+        if (!e.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x; d.fy = d.y;
+      })
       .on("drag",  (e, d) => { d.fx = e.x; d.fy = e.y; })
-      .on("end",   (e, d) => { if (!e.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }));
+      .on("end",   (e, d) => {
+        if (!e.active) simulation.alphaTarget(0);
+        d.fx = null; d.fy = null;
+        // Resume rotation after a moment
+        setTimeout(() => { rotating = true; }, 1500);
+      }));
 
   ng.append("circle").attr("r", d => nodeR(d) + 4).attr("fill", "none")
     .attr("stroke", d => color(d.category)).attr("stroke-opacity", 0.15).attr("stroke-width", 6);
@@ -244,14 +296,25 @@ function addNode(term, newConns) {
   simulation.force("link").links(links);
 
   gSel.select("g").selectAll("line").data(links).join("line")
-    .attr("stroke", "#1e2030").attr("stroke-opacity", 0.6).attr("stroke-width", d => 0.5 + (d.weight || 1) * 0.3);
+    .attr("stroke", "rgba(255,255,255,0.18)")
+    .attr("stroke-opacity", 1)
+    .attr("stroke-width", d => 0.5 + (d.weight || 1) * 0.3)
+    .attr("filter", "url(#link-glow)");
 
   const ng = gSel.selectAll(".node-g").data(nodes, d => d.id);
   const entered = ng.enter().append("g").attr("class", "node-g").attr("cursor", "pointer")
     .call(d3.drag()
-      .on("start", (e, d) => { if (!e.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+      .on("start", (e, d) => {
+        rotating = false;
+        if (!e.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x; d.fy = d.y;
+      })
       .on("drag",  (e, d) => { d.fx = e.x; d.fy = e.y; })
-      .on("end",   (e, d) => { if (!e.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }));
+      .on("end",   (e, d) => {
+        if (!e.active) simulation.alphaTarget(0);
+        d.fx = null; d.fy = null;
+        setTimeout(() => { rotating = true; }, 1500);
+      }));
 
   entered.append("circle").attr("r", d => nodeR(d) + 4).attr("fill", "none")
     .attr("stroke", d => color(d.category)).attr("stroke-opacity", 0.15).attr("stroke-width", 6);
@@ -298,17 +361,24 @@ function highlightNode(d) {
   gSel.selectAll("line")
     .attr("stroke", l => {
       const s = l.source.id || l.source, t = l.target.id || l.target;
-      return (s === d.id || t === d.id) ? color(d.category) : "#1e2030";
+      return (s === d.id || t === d.id) ? color(d.category) : "rgba(255,255,255,0.04)";
     })
     .attr("stroke-opacity", l => {
       const s = l.source.id || l.source, t = l.target.id || l.target;
-      return (s === d.id || t === d.id) ? 0.9 : 0.15;
+      return (s === d.id || t === d.id) ? 0.95 : 0.4;
+    })
+    .attr("filter", l => {
+      const s = l.source.id || l.source, t = l.target.id || l.target;
+      return (s === d.id || t === d.id) ? "url(#glow)" : "url(#link-glow)";
     });
 }
 function resetHL() {
   if (!gSel) return;
   gSel.selectAll(".node-g").attr("opacity", 1);
-  gSel.selectAll("line").attr("stroke", "#1e2030").attr("stroke-opacity", 0.6);
+  gSel.selectAll("line")
+    .attr("stroke", "rgba(255,255,255,0.18)")
+    .attr("stroke-opacity", 1)
+    .attr("filter", "url(#link-glow)");
 }
 
 // ── Flash ─────────────────────────────────────────────────────────────────────
