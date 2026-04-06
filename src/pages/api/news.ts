@@ -2,9 +2,8 @@ import type { APIRoute } from "astro";
 
 export const GET: APIRoute = async () => {
   try {
-    // HackerNews Algolia — top AI/ML stories, last 48h
-    const url = "https://hn.algolia.com/api/v1/search?query=AI+machine+learning+LLM&tags=story&hitsPerPage=30&numericFilters=created_at_i>%s"
-      .replace("%s", String(Math.floor(Date.now() / 1000) - 172800));
+    // HackerNews Algolia — top AI/ML stories
+    const url = "https://hn.algolia.com/api/v1/search?query=AI+machine+learning+LLM+artificial+intelligence&tags=story&hitsPerPage=30&sortBy=points";
 
     const res = await fetch(url);
     const data = await res.json();
@@ -19,6 +18,7 @@ export const GET: APIRoute = async () => {
       headers: { "Content-Type": "application/json", "Cache-Control": "s-maxage=300" },
     });
   } catch (err) {
-    return new Response(JSON.stringify({ stories: [] }), { status: 200 });
+    console.error("News fetch error:", err);
+    return new Response(JSON.stringify({ stories: [], error: String(err) }), { status: 200 });
   }
 };
